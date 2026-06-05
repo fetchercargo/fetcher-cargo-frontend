@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -11,8 +9,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Track Your Shipment | Fetcher Cargo",
-  description: "Track your cargo shipment with Fetcher Cargo. Enter your AirWay bill number to see real-time tracking updates.",
+  title: { default: "Fetcher Cargo", template: "%s | Fetcher Cargo" },
+  description: "Fetcher Cargo — shipment tracking and logistics.",
 };
 
 export default function RootLayout({
@@ -23,9 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${manrope.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
-        <Header />
         {children}
-        <Footer />
       </body>
     </html>
   );
