@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Exact fetchercargo.com color palette */
+  --color-brand-gold: #f3b82e;
+  --color-brand-orange: #f08c2a;
+  --color-brand-purple: #2b296a;
+  --color-brand-coral: #e97840;
+  --color-brand-light-gray: #f2f4f6;
+  --color-brand-white: #FFFFFF;
+  --color-brand-cream: #F9F0C8;
+  --color-brand-dark: #141006;
+  --color-brand-gray: #585858;
+  --color-brand-footer-above: #1b1d1f;
+  --color-brand-footer-primary: #141006;
+  --color-brand-link: #0070C0;
+
+  --color-background: #ffffff;
+  --color-foreground: #141006;
+  --font-sans: var(--font-manrope);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), sans-serif;
+  line-height: 1.7;
+}
+
+/* Dropdown animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-menu {
+  animation: fadeIn 0.15s ease-out;
+}
