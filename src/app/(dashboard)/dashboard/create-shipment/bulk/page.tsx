@@ -64,6 +64,7 @@ export default function BulkCreatePage() {
   const [stage, setStage] = useState<Stage>('select');
   const [validation, setValidation] = useState<BulkValidateResponse | null>(null);
   const [created, setCreated] = useState<ShipmentSummary[]>([]);
+  const [batchNo, setBatchNo] = useState('');
 
   function selectFiles(files: FileList | null) {
     if (files && files.length > 0) {
@@ -88,6 +89,7 @@ export default function BulkCreatePage() {
     setFile(null);
     setValidation(null);
     setCreated([]);
+    setBatchNo('');
     setError(null);
     setStage('select');
     if (inputRef.current) inputRef.current.value = '';
@@ -120,7 +122,7 @@ export default function BulkCreatePage() {
   }
 
   if (stage === 'result') {
-    return <BulkResult created={created} onUploadAnother={reset} />;
+    return <BulkResult created={created} batchNo={batchNo} onUploadAnother={reset} />;
   }
 
   if (stage === 'review' && validation) {
@@ -144,8 +146,9 @@ export default function BulkCreatePage() {
         <div className="mt-6">
           <BulkReviewGrid
             response={validation}
-            onCreated={(c) => {
+            onCreated={(c, b) => {
               setCreated(c);
+              setBatchNo(b);
               setStage('result');
             }}
             onCancel={reset}

@@ -40,8 +40,11 @@ export default function LoginPage() {
   useEffect(() => {
     let active = true;
     fetch('/api/auth/me')
-      .then((res) => {
-        if (active && res.ok) router.replace('/dashboard');
+      .then(async (res) => {
+        if (active && res.ok) {
+          const u = await res.json().catch(() => ({}));
+          router.replace(u.role === 'admin' ? '/admin' : '/dashboard');
+        }
       })
       .catch(() => {});
     return () => {
@@ -69,7 +72,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace('/dashboard');
+      router.replace(data && data.role === 'admin' ? '/admin' : '/dashboard');
     } catch {
       setError('Unable to connect. Please try again.');
     } finally {

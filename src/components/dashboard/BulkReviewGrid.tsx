@@ -37,7 +37,7 @@ export default function BulkReviewGrid({
   onCancel,
 }: {
   response: BulkValidateResponse;
-  onCreated: (created: ShipmentSummary[]) => void;
+  onCreated: (created: ShipmentSummary[], batchNo: string) => void;
   onCancel: () => void;
 }) {
   const allowed = response.allowedValues ?? EMPTY_ALLOWED;
@@ -98,7 +98,7 @@ export default function BulkReviewGrid({
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 201) {
-        onCreated((data.created ?? []) as ShipmentSummary[]);
+        onCreated((data.created ?? []) as ShipmentSummary[], (data.batchNo ?? '') as string);
         return;
       }
       if (res.status === 422 && Array.isArray(data.rows)) {

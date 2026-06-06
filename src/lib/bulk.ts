@@ -74,6 +74,7 @@ export interface ShipmentSummary {
 export interface BulkCreateResponse {
   created: ShipmentSummary[];
   count: number;
+  batchNo: string;
 }
 
 export interface BulkCreateErrorResponse {

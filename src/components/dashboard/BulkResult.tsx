@@ -5,9 +5,11 @@ import type { ShipmentSummary } from '@/lib/bulk';
 
 export default function BulkResult({
   created,
+  batchNo,
   onUploadAnother,
 }: {
   created: ShipmentSummary[];
+  batchNo: string;
   onUploadAnother: () => void;
 }) {
   return (
@@ -21,6 +23,11 @@ export default function BulkResult({
         <h1 className="text-2xl font-bold text-brand-dark mt-4">
           {created.length} shipment{created.length === 1 ? '' : 's'} created
         </h1>
+        {batchNo && (
+          <div className="mt-3 inline-block bg-purple-100 text-brand-purple text-xs font-semibold px-3 py-1 rounded-full">
+            Batch {batchNo}
+          </div>
+        )}
         <p className="text-gray-500 mt-1">Track them with these AWBs:</p>
 
         <div className="mt-5 max-h-72 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 text-left">
