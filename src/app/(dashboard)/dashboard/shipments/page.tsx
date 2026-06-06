@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 interface ShipmentSummary {
@@ -53,6 +54,7 @@ function CreateButton() {
 }
 
 export default function MyShipmentsPage() {
+  const router = useRouter();
   const [shipments, setShipments] = useState<ShipmentSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,7 +127,11 @@ export default function MyShipmentsPage() {
                 </thead>
                 <tbody>
                   {shipments.map((s) => (
-                    <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50/60">
+                    <tr
+                      key={s.id}
+                      onClick={() => router.push(`/dashboard/shipments/${s.id}`)}
+                      className="border-t border-gray-100 hover:bg-gray-50/60 cursor-pointer"
+                    >
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-brand-dark">
                         {s.awb || `#${s.id}`}
                         {s.isDg && (
