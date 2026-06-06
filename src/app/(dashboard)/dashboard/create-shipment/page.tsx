@@ -28,6 +28,7 @@ interface FormState {
   shipmentCategory: string;
   isDg: boolean;
   additionalInfo: string;
+  customerRef: string;
 }
 
 const INITIAL: FormState = {
@@ -50,6 +51,7 @@ const INITIAL: FormState = {
   shipmentCategory: 'DOC',
   isDg: false,
   additionalInfo: '',
+  customerRef: '',
 };
 
 const inputCls =
@@ -108,6 +110,7 @@ export default function CreateShipmentPage() {
       shipmentCategory: form.shipmentCategory,
       isDg: form.isDg,
       additionalInfo: form.additionalInfo,
+      customerRef: form.customerRef,
     };
 
     try {
@@ -176,12 +179,20 @@ export default function CreateShipmentPage() {
             Enter the booking details. An AWB is assigned automatically; billing and pickup are handled by our team.
           </p>
         </div>
-        <Link
-          href="/dashboard/shipments"
-          className="hidden sm:inline text-sm font-semibold text-brand-gray hover:text-brand-orange transition-colors whitespace-nowrap"
-        >
-          ← My Shipments
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/create-shipment/bulk"
+            className="px-4 py-2 text-sm font-semibold text-brand-orange border border-brand-orange rounded-lg hover:bg-orange-50 transition-colors whitespace-nowrap"
+          >
+            Bulk Create
+          </Link>
+          <Link
+            href="/dashboard/shipments"
+            className="hidden sm:inline text-sm font-semibold text-brand-gray hover:text-brand-orange transition-colors whitespace-nowrap"
+          >
+            ← My Shipments
+          </Link>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-6">
@@ -210,6 +221,10 @@ export default function CreateShipmentPage() {
             <select id="shipmentCategory" className={inputCls} value={form.shipmentCategory} onChange={(e) => set('shipmentCategory', e.target.value)}>
               {CATEGORIES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
             </select>
+          </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <label className={labelCls} htmlFor="customerRef">Your reference (optional)</label>
+            <input id="customerRef" className={inputCls} value={form.customerRef} onChange={(e) => set('customerRef', e.target.value)} placeholder="e.g. PO / order number — shown on your shipments" />
           </div>
           <label className="flex items-center gap-2.5 sm:col-span-2 mt-1">
             <input

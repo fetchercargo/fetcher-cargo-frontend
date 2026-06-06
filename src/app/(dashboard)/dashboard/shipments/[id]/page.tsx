@@ -15,6 +15,7 @@ interface ShipmentDetail {
   id: number;
   awb: string | null;
   clientCode: string | null;
+  customerRef: string | null;
   status: string;
   scope: string | null;
   shipmentType: string | null;
@@ -184,6 +185,7 @@ export default function ShipmentDetailPage() {
         <Section title="Overview">
           <Row label="AWB" value={data.awb} />
           <Row label="Client ID" value={data.clientCode} />
+          <Row label="Your Reference" value={data.customerRef} />
           <Row label="Status" value={data.status} />
           <Row label="Scope" value={titleCase(data.scope)} />
           <Row label="Shipment Type" value={titleCase(data.shipmentType)} />

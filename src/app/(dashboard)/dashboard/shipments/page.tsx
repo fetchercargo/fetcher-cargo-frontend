@@ -17,6 +17,7 @@ interface ShipmentSummary {
   pickupPincode: string | null;
   deliveryPincode: string | null;
   isDg: boolean;
+  customerRef: string | null;
   createdAt: string;
 }
 
@@ -115,6 +116,7 @@ export default function MyShipmentsPage() {
                 <thead>
                   <tr className="bg-gray-50 text-left text-gray-500">
                     <th className="px-4 py-3 font-medium whitespace-nowrap">AWB</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Reference</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Scope</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Mode</th>
@@ -138,6 +140,7 @@ export default function MyShipmentsPage() {
                           <span className="ml-2 text-[10px] font-semibold uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded">DG</span>
                         )}
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-600">{s.customerRef || '—'}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses(s.status)}`}>
                           {s.status}
