@@ -106,8 +106,8 @@ export interface NavItem {
 // placeholders until their features are built.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Overview', icon: OverviewIcon, href: '/dashboard' },
-  { label: 'Create Shipment', icon: CreateShipmentIcon, soon: true },
-  { label: 'My Shipments', icon: ShipmentsIcon, soon: true },
+  { label: 'Create Shipment', icon: CreateShipmentIcon, href: '/dashboard/create-shipment' },
+  { label: 'My Shipments', icon: ShipmentsIcon, href: '/dashboard/shipments' },
   { label: 'Documents', icon: DocumentsIcon, soon: true },
   { label: 'Tracking', icon: TrackingIcon, href: '/' },
   { label: 'Calculator', icon: CalculatorIcon, soon: true },

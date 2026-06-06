@@ -41,7 +41,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
       {NAV_ITEMS.map((item) => {
         const ItemIcon = item.icon;
-        const active = item.href === '/dashboard' && pathname === '/dashboard';
+        const active = !!item.href && item.href.startsWith('/dashboard') && pathname === item.href;
 
         if (item.href) {
           return (
