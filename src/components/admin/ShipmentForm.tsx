@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SCOPES, TYPES, MODES, CATEGORIES, STATUSES, titleCase, type ClientOption } from '@/lib/admin';
+import { BrandDots } from '@/components/BrandLoader';
 
 export interface ShipmentFormState {
   clientCode: string;
@@ -265,7 +266,7 @@ export default function ShipmentForm({
           disabled={submitting}
           className="px-8 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Saving…' : submitLabel}
+          {submitting ? <span className="inline-flex items-center gap-2"><BrandDots /> Saving…</span> : submitLabel}
         </button>
       </div>
     </form>

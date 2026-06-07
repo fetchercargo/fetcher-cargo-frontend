@@ -3,14 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-function Spinner() {
-  return (
-    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
-  );
-}
+import BrandLoader, { BrandDots } from '@/components/BrandLoader';
 
 function EyeIcon({ off }: { off: boolean }) {
   return off ? (
@@ -35,6 +28,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [slow, setSlow] = useState(false);
 
   // If a valid session already exists, skip the form and go to the dashboard.
   useEffect(() => {
@@ -51,6 +45,17 @@ export default function LoginPage() {
       active = false;
     };
   }, [router]);
+
+  // A slow sign-in usually means the free-tier backend is cold-starting — show
+  // the branded loader after a short grace period (fast logins keep the button).
+  useEffect(() => {
+    if (!loading) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), 1200);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +83,14 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (slow) {
+    return (
+      <div className="fixed inset-0 z-50">
+        <BrandLoader title="Signing you in…" />
+      </div>
+    );
   }
 
   return (
@@ -147,7 +160,7 @@ export default function LoginPage() {
           >
             {loading ? (
               <>
-                <Spinner />
+                <BrandDots />
                 Signing in...
               </>
             ) : (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { BrandDots } from '@/components/BrandLoader';
 
 const SCOPES = ['DOMESTIC', 'INTERNATIONAL'];
 const TYPES = ['COMMERCIAL', 'NON-COMMERCIAL'];
@@ -322,7 +323,7 @@ export default function CreateShipmentPage() {
             disabled={submitting}
             className="px-8 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Creating…' : 'Create shipment'}
+            {submitting ? <span className="inline-flex items-center gap-2"><BrandDots /> Creating…</span> : 'Create shipment'}
           </button>
         </div>
       </form>

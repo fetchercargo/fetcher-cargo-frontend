@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import BrandLoader from '@/components/BrandLoader';
 
 interface ShipmentSummary {
   id: number;
@@ -94,12 +95,7 @@ export default function MyShipmentsPage() {
 
       <div className="mt-6">
         {shipments === null ? (
-          <div className="flex justify-center py-16">
-            <svg className="animate-spin h-7 w-7 text-brand-orange" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          </div>
+          <BrandLoader variant="section" />
         ) : shipments.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-10 sm:p-14 text-center">
             <p className="text-brand-dark font-medium">No shipments yet</p>

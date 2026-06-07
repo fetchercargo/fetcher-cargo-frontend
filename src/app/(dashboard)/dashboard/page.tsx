@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useDashboardUser } from '@/components/dashboard/DashboardContext';
+import BrandLoader from '@/components/BrandLoader';
 
 interface ShipmentSummary {
   id: number;
@@ -52,15 +53,6 @@ function PackageIcon() {
       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
       <path d="M3.27 6.96 12 12.01l8.73-5.05" />
       <path d="M12 22.08V12" />
-    </svg>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg className="animate-spin h-6 w-6 text-brand-orange" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
   );
 }
@@ -164,9 +156,7 @@ export default function DashboardOverview() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-14">
-              <Spinner />
-            </div>
+            <BrandLoader variant="section" />
           ) : recent.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-10 sm:py-14">
               <PackageIcon />
@@ -224,6 +214,10 @@ export default function DashboardOverview() {
             <div>
               <dt className="text-gray-400">Email</dt>
               <dd className="text-brand-dark font-medium break-all">{user.email}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-400">Client code</dt>
+              <dd className="text-brand-dark font-medium">{user.clientCode || '—'}</dd>
             </div>
             <div>
               <dt className="text-gray-400">Role</dt>

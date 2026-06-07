@@ -7,6 +7,7 @@ export interface DashboardUser {
   email: string;
   name: string;
   role: string;
+  clientCode: string;
 }
 
 const DashboardUserContext = createContext<DashboardUser | null>(null);

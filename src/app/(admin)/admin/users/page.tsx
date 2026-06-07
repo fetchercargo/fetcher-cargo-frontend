@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatDate, type AdminUser } from '@/lib/admin';
+import BrandLoader, { BrandDots } from '@/components/BrandLoader';
 
 const inputCls =
   'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow';
@@ -126,7 +127,7 @@ function UserPanel({ panel, onClose, onSaved }: { panel: Panel; onClose: () => v
             Cancel
           </button>
           <button type="submit" disabled={submitting} className="px-6 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50">
-            {submitting ? 'Saving…' : isCreate ? 'Create user' : isReset ? 'Reset password' : 'Save changes'}
+            {submitting ? <span className="inline-flex items-center gap-2"><BrandDots /> Saving…</span> : isCreate ? 'Create user' : isReset ? 'Reset password' : 'Save changes'}
           </button>
         </div>
       </form>
@@ -176,12 +177,7 @@ export default function AdminUsersPage() {
         )}
 
         {users === null ? (
-          <div className="flex justify-center py-16">
-            <svg className="animate-spin h-7 w-7 text-brand-orange" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          </div>
+          <BrandLoader variant="section" />
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { BrandDots } from '@/components/BrandLoader';
 import {
   COLUMNS,
   computeRowErrors,
@@ -219,7 +220,7 @@ export default function BulkReviewGrid({
             onClick={handleCreate}
             className="px-6 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Creating…' : `Create ${rows.length} shipment${rows.length === 1 ? '' : 's'}`}
+            {submitting ? <span className="inline-flex items-center gap-2"><BrandDots /> Creating…</span> : `Create ${rows.length} shipment${rows.length === 1 ? '' : 's'}`}
           </button>
         </div>
       </div>

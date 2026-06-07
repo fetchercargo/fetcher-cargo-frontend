@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { TrackingUpdate } from '@/lib/admin';
+import { BrandDots } from '@/components/BrandLoader';
 
 const inputCls =
   'w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent';
@@ -70,7 +71,7 @@ export default function TrackingEditor({
           disabled={saving}
           className="px-6 py-2.5 bg-brand-purple text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          {saving ? 'Saving…' : 'Save timeline'}
+          {saving ? <span className="inline-flex items-center gap-2"><BrandDots /> Saving…</span> : 'Save timeline'}
         </button>
       </div>
     </div>

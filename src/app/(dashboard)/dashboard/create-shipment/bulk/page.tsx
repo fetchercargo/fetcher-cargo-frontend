@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
+import { BrandDots } from '@/components/BrandLoader';
 import BulkReviewGrid from '@/components/dashboard/BulkReviewGrid';
 import BulkResult from '@/components/dashboard/BulkResult';
 import type { BulkValidateResponse, ShipmentSummary } from '@/lib/bulk';
@@ -241,7 +242,7 @@ export default function BulkCreatePage() {
             onClick={handleValidate}
             className="px-8 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Validating…' : 'Upload & review'}
+            {submitting ? <span className="inline-flex items-center gap-2"><BrandDots /> Validating…</span> : 'Upload & review'}
           </button>
         </div>
       </div>
