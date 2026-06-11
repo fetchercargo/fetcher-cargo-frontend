@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BrandDots } from '@/components/BrandLoader';
+import type { ClientLocation } from '@/lib/admin';
 
 const SCOPES = ['DOMESTIC', 'INTERNATIONAL'];
 const TYPES = ['COMMERCIAL', 'NON-COMMERCIAL'];
@@ -76,14 +77,60 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// A dropdown that fills the address block from a client's saved locations.
+function SavedLocationPicker({ locations, onPick, label }: { locations: ClientLocation[]; onPick: (l: ClientLocation) => void; label: string }) {
+  if (locations.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5 sm:col-span-2">
+      <label className={labelCls}>{label}</label>
+      <select
+        className={inputCls}
+        value=""
+        onChange={(e) => {
+          const l = locations.find((x) => String(x.id) === e.target.value);
+          if (l) onPick(l);
+        }}
+      >
+        <option value="">Select a saved location to fill the fields…</option>
+        {locations.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.label}
+            {l.pincode ? ` — ${l.pincode}` : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export default function CreateShipmentPage() {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<{ awb: string | null; id: number } | null>(null);
 
+  const [savedPickups, setSavedPickups] = useState<ClientLocation[]>([]);
+  const [savedDeliveries, setSavedDeliveries] = useState<ClientLocation[]>([]);
+
+  useEffect(() => {
+    fetch('/api/locations')
+      .then((r) => (r.ok ? r.json() : { pickups: [], deliveries: [] }))
+      .then((d) => {
+        setSavedPickups(d.pickups ?? []);
+        setSavedDeliveries(d.deliveries ?? []);
+      })
+      .catch(() => {});
+  }, []);
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function fillPickup(l: ClientLocation) {
+    setForm((f) => ({ ...f, pickupAddress: l.address, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email }));
+  }
+  function fillDelivery(l: ClientLocation) {
+    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -240,6 +287,7 @@ export default function CreateShipmentPage() {
 
         {/* Pickup */}
         <Section title="Pickup details">
+          <SavedLocationPicker locations={savedPickups} onPick={fillPickup} label="Use a saved pickup location" />
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className={labelCls} htmlFor="pickupAddress">Pickup address <span className="text-red-500">*</span></label>
             <textarea id="pickupAddress" required rows={2} className={inputCls} value={form.pickupAddress} onChange={(e) => set('pickupAddress', e.target.value)} />
@@ -264,6 +312,7 @@ export default function CreateShipmentPage() {
 
         {/* Delivery */}
         <Section title="Delivery details">
+          <SavedLocationPicker locations={savedDeliveries} onPick={fillDelivery} label="Use a saved delivery location" />
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className={labelCls} htmlFor="deliveryAddress">Delivery address <span className="text-red-500">*</span></label>
             <textarea id="deliveryAddress" required rows={2} className={inputCls} value={form.deliveryAddress} onChange={(e) => set('deliveryAddress', e.target.value)} />

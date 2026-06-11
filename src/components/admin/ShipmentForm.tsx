@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { SCOPES, TYPES, MODES, CATEGORIES, STATUSES, titleCase, type ClientOption } from '@/lib/admin';
+import { useEffect, useState } from 'react';
+import { SCOPES, TYPES, MODES, CATEGORIES, STATUSES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
 import { BrandDots } from '@/components/BrandLoader';
 
 export interface ShipmentFormState {
@@ -68,6 +68,32 @@ function Field({ label, required, children, full }: { label: string; required?: 
   );
 }
 
+// Fills an address block from the selected client's saved locations.
+function LocationPicker({ locations, onPick, label }: { locations: ClientLocation[]; onPick: (l: ClientLocation) => void; label: string }) {
+  if (locations.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5 sm:col-span-2">
+      <label className={labelCls}>{label}</label>
+      <select
+        className={inputCls}
+        value=""
+        onChange={(e) => {
+          const l = locations.find((x) => String(x.id) === e.target.value);
+          if (l) onPick(l);
+        }}
+      >
+        <option value="">Select a saved location to fill the fields…</option>
+        {locations.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.label}
+            {l.pincode ? ` — ${l.pincode}` : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export default function ShipmentForm({
   mode,
   clients = [],
@@ -89,6 +115,32 @@ export default function ShipmentForm({
 
   function set<K extends keyof ShipmentFormState>(key: K, value: ShipmentFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  // Saved locations for the selected client (create-for-client only).
+  const [savedPickups, setSavedPickups] = useState<ClientLocation[]>([]);
+  const [savedDeliveries, setSavedDeliveries] = useState<ClientLocation[]>([]);
+  useEffect(() => {
+    if (mode !== 'create' || !form.clientCode) return;
+    let active = true;
+    fetch(`/api/admin/clients/${encodeURIComponent(form.clientCode)}/locations`)
+      .then((r) => (r.ok ? r.json() : { pickups: [], deliveries: [] }))
+      .then((d) => {
+        if (!active) return;
+        setSavedPickups(d.pickups ?? []);
+        setSavedDeliveries(d.deliveries ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [mode, form.clientCode]);
+
+  function fillPickup(l: ClientLocation) {
+    setForm((f) => ({ ...f, pickupAddress: l.address, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email }));
+  }
+  function fillDelivery(l: ClientLocation) {
+    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -180,6 +232,7 @@ export default function ShipmentForm({
       </Section>
 
       <Section title="Pickup details">
+        <LocationPicker locations={savedPickups} onPick={fillPickup} label="Use a saved pickup location" />
         <Field label="Pickup address" required full>
           <textarea rows={2} className={inputCls} value={form.pickupAddress} onChange={(e) => set('pickupAddress', e.target.value)} />
         </Field>
@@ -210,6 +263,7 @@ export default function ShipmentForm({
       </Section>
 
       <Section title="Delivery details">
+        <LocationPicker locations={savedDeliveries} onPick={fillDelivery} label="Use a saved delivery location" />
         <Field label="Delivery address" required full>
           <textarea rows={2} className={inputCls} value={form.deliveryAddress} onChange={(e) => set('deliveryAddress', e.target.value)} />
         </Field>

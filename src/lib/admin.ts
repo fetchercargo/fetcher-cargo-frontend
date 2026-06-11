@@ -80,8 +80,65 @@ export interface AdminUser {
   name: string;
   role: string;
   clientCode: string;
+  businessName: string;
+  businessAddress: string;
+  businessEmail: string;
+  primaryTel: string;
+  primaryContactPerson: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ClientLocation {
+  id: number;
+  kind: 'pickup' | 'delivery';
+  label: string;
+  address: string;
+  pincode: string;
+  contactNo: string;
+  email: string;
+  contactPerson: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientLocationInput {
+  label: string;
+  address: string;
+  pincode: string;
+  contactNo: string;
+  email: string;
+  contactPerson: string;
+}
+
+export interface ClientDetail {
+  user: AdminUser;
+  pickups: ClientLocation[];
+  deliveries: ClientLocation[];
+}
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  modifiedTime: string;
+}
+
+export function emptyLocation(): ClientLocationInput {
+  return { label: '', address: '', pincode: '', contactNo: '', email: '', contactPerson: '' };
+}
+
+export function formatBytes(n: number): string {
+  if (!n) return '—';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
 export const SCOPES = ['DOMESTIC', 'INTERNATIONAL'];
