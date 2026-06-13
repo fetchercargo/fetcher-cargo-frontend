@@ -110,7 +110,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'My Shipments', icon: ShipmentsIcon, href: '/dashboard/shipments' },
   { label: 'Documents', icon: DocumentsIcon, href: '/dashboard/documents' },
   { label: 'Tracking', icon: TrackingIcon, href: '/' },
-  { label: 'Calculator', icon: CalculatorIcon, soon: true },
+  { label: 'Calculator', icon: CalculatorIcon, href: '/dashboard/calculator' },
   { label: 'Billing', icon: BillingIcon, href: '/dashboard/billing' },
   { label: 'Pincode Serviceability', icon: PincodeIcon, soon: true },
   { label: 'Support', icon: SupportIcon, soon: true },

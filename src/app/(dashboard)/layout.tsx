@@ -23,7 +23,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(async (res) => {
         if (!active) return;
         if (res.ok) {
-          setUser((await res.json()) as DashboardUser);
+          const u = (await res.json()) as DashboardUser;
+          if (u.mustChangePassword) {
+            router.replace('/change-password');
+            return;
+          }
+          setUser(u);
           setState('authed');
         } else {
           setState('unauthed');

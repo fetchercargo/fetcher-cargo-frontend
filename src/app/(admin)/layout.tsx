@@ -27,6 +27,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           return;
         }
         const u = (await res.json()) as DashboardUser;
+        if (u.mustChangePassword) {
+          router.replace('/change-password');
+          return;
+        }
         if (u.role !== 'admin') {
           setState('denied');
           router.replace('/dashboard');

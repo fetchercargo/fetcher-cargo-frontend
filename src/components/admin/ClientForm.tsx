@@ -14,7 +14,6 @@ export interface ClientFormState {
   name: string;
   role: string;
   clientCode: string;
-  password: string;
   businessName: string;
   businessAddress: string;
   businessEmail: string;
@@ -29,7 +28,6 @@ const DEFAULTS: ClientFormState = {
   name: '',
   role: 'user',
   clientCode: '',
-  password: '',
   businessName: '',
   businessAddress: '',
   businessEmail: '',
@@ -99,7 +97,7 @@ export default function ClientForm({
       if (!form.deliveries.some(ok)) return setVErr('Add at least one delivery location (with a label and address).');
     }
     onSubmit({
-      ...(isCreate ? { email: form.email, password: form.password } : {}),
+      ...(isCreate ? { email: form.email } : {}),
       name: form.name,
       role: form.role,
       clientCode: form.clientCode,
@@ -139,9 +137,7 @@ export default function ClientForm({
             <input className={inputCls} value={form.clientCode} onChange={(e) => set('clientCode', e.target.value)} placeholder="e.g. FCC0002" />
           </Field>
           {isCreate && (
-            <Field label="Temporary password" required>
-              <input type="password" className={inputCls} value={form.password} onChange={(e) => set('password', e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" />
-            </Field>
+            <p className="text-xs text-gray-400 sm:col-span-2">A temporary password is generated automatically and emailed to the user on creation.</p>
           )}
         </div>
       </Section>

@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation';
 
 import BrandLoader, { BrandDots } from '@/components/BrandLoader';
 
+interface SessionUser {
+  role?: string;
+  mustChangePassword?: boolean;
+}
+
+function destFor(u: SessionUser): string {
+  if (u.mustChangePassword) return '/change-password';
+  return u.role === 'admin' ? '/admin' : '/dashboard';
+}
+
 function EyeIcon({ off }: { off: boolean }) {
   return off ? (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -23,21 +33,23 @@ function EyeIcon({ off }: { off: boolean }) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
 
-  // If a valid session already exists, skip the form and go to the dashboard.
+  // If a valid session already exists, skip the form.
   useEffect(() => {
     let active = true;
     fetch('/api/auth/me')
       .then(async (res) => {
         if (active && res.ok) {
-          const u = await res.json().catch(() => ({}));
-          router.replace(u.role === 'admin' ? '/admin' : '/dashboard');
+          router.replace(destFor((await res.json().catch(() => ({}))) as SessionUser));
         }
       })
       .catch(() => {});
@@ -46,8 +58,7 @@ export default function LoginPage() {
     };
   }, [router]);
 
-  // A slow sign-in usually means the free-tier backend is cold-starting — show
-  // the branded loader after a short grace period (fast logins keep the button).
+  // A slow request usually means the free-tier backend is cold-starting.
   useEffect(() => {
     if (!loading) {
       setSlow(false);
@@ -57,13 +68,12 @@ export default function LoginPage() {
     return () => clearTimeout(t);
   }, [loading]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function submitCredentials(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !password) return;
-
     setLoading(true);
     setError(null);
-
+    setNote(null);
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -71,17 +81,61 @@ export default function LoginPage() {
         body: JSON.stringify({ email: email.trim(), password }),
       });
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         setError(data.error || 'Unable to sign in. Please try again.');
         return;
       }
-
-      router.replace(data && data.role === 'admin' ? '/admin' : '/dashboard');
+      if (data.otpRequired) {
+        setStep('otp');
+        setCode('');
+        return;
+      }
+      router.replace(destFor(data as SessionUser));
     } catch {
       setError('Unable to connect. Please try again.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (code.trim().length < 6) return;
+    setLoading(true);
+    setError(null);
+    setNote(null);
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), code: code.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'That code is invalid or has expired.');
+        return;
+      }
+      router.replace(destFor(data as SessionUser));
+    } catch {
+      setError('Unable to connect. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resend() {
+    setError(null);
+    setNote(null);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      if (res.ok) setNote('A new code has been sent to your email.');
+      else setError('Could not resend the code. Go back and sign in again.');
+    } catch {
+      setError('Unable to connect. Please try again.');
     }
   }
 
@@ -97,77 +151,114 @@ export default function LoginPage() {
     <main className="flex-1 flex flex-col items-center justify-center px-4 py-10 sm:py-16">
       <div className="w-full max-w-md">
         <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-dark">Sign in</h1>
-          <p className="text-gray-500 mt-2">Access your Fetcher Cargo account</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-brand-dark">{step === 'otp' ? 'Enter your code' : 'Sign in'}</h1>
+          <p className="text-gray-500 mt-2">
+            {step === 'otp' ? `We emailed a 6-digit code to ${email}` : 'Access your Fetcher Cargo account'}
+          </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 sm:p-8 flex flex-col gap-5"
-        >
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-sm font-medium text-brand-dark">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              className="px-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-sm font-medium text-brand-dark">
-              Password
-            </label>
-            <div className="relative">
+        {step === 'credentials' ? (
+          <form onSubmit={submitCredentials} className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 sm:p-8 flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="email" className="text-sm font-medium text-brand-dark">Email</label>
               <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 required
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow"
+                className="px-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-orange transition-colors p-1"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                <EyeIcon off={showPassword} />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="password" className="text-sm font-medium text-brand-dark">Password</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-orange transition-colors p-1"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <EyeIcon off={showPassword} />
+                </button>
+              </div>
+            </div>
+
+            {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center">{error}</div>}
+
+            <button
+              type="submit"
+              disabled={loading || !email.trim() || !password}
+              className="w-full px-8 py-3 bg-brand-orange text-white font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <BrandDots />
+                  Signing in...
+                </>
+              ) : (
+                'Sign in'
+              )}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={submitOtp} className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 sm:p-8 flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="code" className="text-sm font-medium text-brand-dark">Verification code</label>
+              <input
+                id="code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="123456"
+                autoFocus
+                required
+                className="px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl font-semibold tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow"
+              />
+            </div>
+
+            {note && <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm text-center">{note}</div>}
+            {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center">{error}</div>}
+
+            <button
+              type="submit"
+              disabled={loading || code.length < 6}
+              className="w-full px-8 py-3 bg-brand-orange text-white font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <BrandDots />
+                  Verifying...
+                </>
+              ) : (
+                'Verify & sign in'
+              )}
+            </button>
+
+            <div className="flex items-center justify-between text-sm">
+              <button type="button" onClick={() => { setStep('credentials'); setError(null); setNote(null); }} className="font-semibold text-brand-gray hover:text-brand-dark transition-colors">
+                ← Back
+              </button>
+              <button type="button" onClick={resend} className="font-semibold text-brand-orange hover:text-brand-coral transition-colors">
+                Resend code
               </button>
             </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || !email.trim() || !password}
-            className="w-full px-8 py-3 bg-brand-orange text-white font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <BrandDots />
-                Signing in...
-              </>
-            ) : (
-              'Sign in'
-            )}
-          </button>
-        </form>
+          </form>
+        )}
 
         <p className="text-center text-xs text-gray-400 mt-6">
           Authorized personnel only. Contact your administrator for access.

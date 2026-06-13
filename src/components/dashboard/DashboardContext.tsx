@@ -8,6 +8,7 @@ export interface DashboardUser {
   name: string;
   role: string;
   clientCode: string;
+  mustChangePassword?: boolean;
 }
 
 const DashboardUserContext = createContext<DashboardUser | null>(null);
