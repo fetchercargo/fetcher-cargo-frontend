@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 // proxying /api/* to that service via rewrites (no CORS, token/captcha flows
 // keep working unchanged). Override the target with BACKEND_API_URL.
 const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ?? "https://fetcher-cargo-backend.onrender.com";
+  process.env.BACKEND_API_URL ?? "https://fetcher-cargo-backend-tsxw.onrender.com";
 
 const nextConfig: NextConfig = {
   async rewrites() {
