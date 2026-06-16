@@ -49,6 +49,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               key={item.label}
               href={item.href}
               onClick={onNavigate}
+              target={item.newTab ? '_blank' : undefined}
+              rel={item.newTab ? 'noopener noreferrer' : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 active
                   ? 'bg-orange-50 text-brand-orange'

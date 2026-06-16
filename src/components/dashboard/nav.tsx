@@ -100,6 +100,7 @@ export interface NavItem {
   icon: FC;
   href?: string; // present => real navigation
   soon?: boolean; // present => not yet built (inert, shows a "Soon" badge)
+  newTab?: boolean; // present => open in a new tab
 }
 
 // Sidebar navigation. Only Overview and Tracking navigate; the rest are
@@ -109,7 +110,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Create Shipment', icon: CreateShipmentIcon, href: '/dashboard/create-shipment' },
   { label: 'My Shipments', icon: ShipmentsIcon, href: '/dashboard/shipments' },
   { label: 'Documents', icon: DocumentsIcon, href: '/dashboard/documents' },
-  { label: 'Tracking', icon: TrackingIcon, href: '/' },
+  { label: 'Tracking', icon: TrackingIcon, href: '/', newTab: true },
   { label: 'Calculator', icon: CalculatorIcon, href: '/dashboard/calculator' },
   { label: 'Billing', icon: BillingIcon, href: '/dashboard/billing' },
   { label: 'Pincode Serviceability', icon: PincodeIcon, soon: true },
