@@ -6,6 +6,7 @@ import type { NextConfig } from "next";
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ?? "https://fetcher-cargo-backend-tsxw.onrender.com";
 
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
