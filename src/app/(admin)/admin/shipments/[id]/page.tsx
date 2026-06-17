@@ -14,9 +14,11 @@ function detailToForm(d: ShipmentDetail): Partial<ShipmentFormState> {
   return {
     scope: s(d.scope), pickupAddress: s(d.pickupAddress), pickupPincode: s(d.pickupPincode),
     pickupContactPerson: s(d.pickupContactPerson), pickupContactNo: s(d.pickupContactNo), pickupContactEmail: s(d.pickupContactEmail),
+    pickupAltContactPerson: s(d.pickupAltContactPerson), pickupAltContactNo: s(d.pickupAltContactNo),
     noOfPieces: n(d.noOfPieces), weightKg: n(d.weightKg), dimensions: s(d.dimensions),
     deliveryAddress: s(d.deliveryAddress), deliveryPincode: s(d.deliveryPincode),
     deliveryContactPerson: s(d.deliveryContactPerson), deliveryContactNo: s(d.deliveryContactNo), deliveryContactEmail: s(d.deliveryContactEmail),
+    deliveryAltContactPerson: s(d.deliveryAltContactPerson), deliveryAltContactNo: s(d.deliveryAltContactNo),
     shipmentType: s(d.shipmentType), mode: s(d.mode), shipmentCategory: s(d.shipmentCategory),
     isDg: d.isDg, additionalInfo: s(d.additionalInfo), customerRef: s(d.customerRef),
     awb: s(d.awb), status: d.status, batchNo: s(d.batchNo), chargeableWeight: n(d.chargeableWeight),

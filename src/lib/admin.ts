@@ -56,6 +56,8 @@ export interface ShipmentDetail {
   pickupContactPerson: string | null;
   pickupContactNo: string | null;
   pickupContactEmail: string | null;
+  pickupAltContactPerson: string | null;
+  pickupAltContactNo: string | null;
   noOfPieces: number | null;
   weightKg: number | null;
   dimensions: string | null;
@@ -65,6 +67,8 @@ export interface ShipmentDetail {
   deliveryContactPerson: string | null;
   deliveryContactNo: string | null;
   deliveryContactEmail: string | null;
+  deliveryAltContactPerson: string | null;
+  deliveryAltContactNo: string | null;
   estimatedDeliveryDate: string | null;
   billingAmount: number | null;
   additionalInfo: string | null;
@@ -98,6 +102,8 @@ export interface ClientLocation {
   contactNo: string;
   email: string;
   contactPerson: string;
+  altContactPerson: string;
+  altContactNo: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -109,6 +115,8 @@ export interface ClientLocationInput {
   contactNo: string;
   email: string;
   contactPerson: string;
+  altContactPerson: string;
+  altContactNo: string;
 }
 
 export interface ClientDetail {
@@ -126,7 +134,16 @@ export interface DriveFile {
 }
 
 export function emptyLocation(): ClientLocationInput {
-  return { label: '', address: '', pincode: '', contactNo: '', email: '', contactPerson: '' };
+  return {
+    label: '',
+    address: '',
+    pincode: '',
+    contactNo: '',
+    email: '',
+    contactPerson: '',
+    altContactPerson: '',
+    altContactNo: '',
+  };
 }
 
 export function formatBytes(n: number): string {

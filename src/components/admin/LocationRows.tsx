@@ -47,6 +47,8 @@ export default function LocationRows({
             <input className={inputCls} placeholder="Contact person" value={r.contactPerson} onChange={(e) => update(i, 'contactPerson', e.target.value)} />
             <input className={inputCls} placeholder="Contact no" value={r.contactNo} onChange={(e) => update(i, 'contactNo', e.target.value)} />
             <input className={`${inputCls} sm:col-span-2`} placeholder="Email" value={r.email} onChange={(e) => update(i, 'email', e.target.value)} />
+            <input className={inputCls} placeholder="Alternate contact person" value={r.altContactPerson} onChange={(e) => update(i, 'altContactPerson', e.target.value)} />
+            <input className={inputCls} placeholder="Alternate contact no" value={r.altContactNo} onChange={(e) => update(i, 'altContactNo', e.target.value)} />
           </div>
         </div>
       ))}

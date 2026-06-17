@@ -12,6 +12,8 @@ export interface ShipmentInput {
   pickupContactPerson: string;
   pickupContactNo: string;
   pickupContactEmail: string;
+  pickupAltContactPerson: string;
+  pickupAltContactNo: string;
   noOfPieces: number;
   weightKg: number;
   dimensions: string;
@@ -20,6 +22,8 @@ export interface ShipmentInput {
   deliveryContactPerson: string;
   deliveryContactNo: string;
   deliveryContactEmail: string;
+  deliveryAltContactPerson: string;
+  deliveryAltContactNo: string;
   shipmentType: string;
   mode: string;
   shipmentCategory: string;
@@ -97,7 +101,7 @@ export interface ColumnDef {
   wide?: boolean; // address/notes -> wider input
 }
 
-// COLUMNS are the 19 editable input fields in template order (REF + row number
+// COLUMNS are the editable input fields in template order (REF + row number
 // are rendered separately by the grid). Labels match the template headers.
 export const COLUMNS: ColumnDef[] = [
   { key: 'scope', label: 'Scope', kind: 'enum', required: true, allowedKey: 'scopes' },
@@ -106,6 +110,8 @@ export const COLUMNS: ColumnDef[] = [
   { key: 'pickupContactPerson', label: 'Pickup Contact Person', kind: 'text', required: false },
   { key: 'pickupContactNo', label: 'Pickup Contact No', kind: 'text', required: true },
   { key: 'pickupContactEmail', label: 'Pickup Contact Email', kind: 'text', required: false },
+  { key: 'pickupAltContactPerson', label: 'Pickup Alternate Contact Person', kind: 'text', required: false },
+  { key: 'pickupAltContactNo', label: 'Pickup Alternate Contact No', kind: 'text', required: false },
   { key: 'noOfPieces', label: 'No. of Pieces', kind: 'number', required: true },
   { key: 'weightKg', label: 'Weight (kg)', kind: 'number', required: true },
   { key: 'dimensions', label: 'Dimensions (cm)', kind: 'text', required: false },
@@ -114,6 +120,8 @@ export const COLUMNS: ColumnDef[] = [
   { key: 'deliveryContactNo', label: 'Delivery Contact No', kind: 'text', required: true },
   { key: 'deliveryContactPerson', label: 'Delivery Contact Person', kind: 'text', required: false },
   { key: 'deliveryContactEmail', label: 'Delivery Contact Email', kind: 'text', required: false },
+  { key: 'deliveryAltContactPerson', label: 'Delivery Alternate Contact Person', kind: 'text', required: false },
+  { key: 'deliveryAltContactNo', label: 'Delivery Alternate Contact No', kind: 'text', required: false },
   { key: 'shipmentType', label: 'Shipment Type', kind: 'enum', required: true, allowedKey: 'types' },
   { key: 'mode', label: 'Mode', kind: 'enum', required: true, allowedKey: 'modes' },
   { key: 'shipmentCategory', label: 'Shipment Catagory', kind: 'enum', required: true, allowedKey: 'categories' },

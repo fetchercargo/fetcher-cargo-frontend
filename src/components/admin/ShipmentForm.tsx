@@ -12,6 +12,8 @@ export interface ShipmentFormState {
   pickupContactPerson: string;
   pickupContactNo: string;
   pickupContactEmail: string;
+  pickupAltContactPerson: string;
+  pickupAltContactNo: string;
   noOfPieces: string;
   weightKg: string;
   dimensions: string;
@@ -20,6 +22,8 @@ export interface ShipmentFormState {
   deliveryContactPerson: string;
   deliveryContactNo: string;
   deliveryContactEmail: string;
+  deliveryAltContactPerson: string;
+  deliveryAltContactNo: string;
   shipmentType: string;
   mode: string;
   shipmentCategory: string;
@@ -38,8 +42,10 @@ export interface ShipmentFormState {
 
 const DEFAULTS: ShipmentFormState = {
   clientCode: '', scope: 'DOMESTIC', pickupAddress: '', pickupPincode: '', pickupContactPerson: '',
-  pickupContactNo: '', pickupContactEmail: '', noOfPieces: '1', weightKg: '', dimensions: '',
+  pickupContactNo: '', pickupContactEmail: '', pickupAltContactPerson: '', pickupAltContactNo: '',
+  noOfPieces: '1', weightKg: '', dimensions: '',
   deliveryAddress: '', deliveryPincode: '', deliveryContactPerson: '', deliveryContactNo: '', deliveryContactEmail: '',
+  deliveryAltContactPerson: '', deliveryAltContactNo: '',
   shipmentType: 'COMMERCIAL', mode: 'SURFACE', shipmentCategory: 'NON-DOC', isDg: false, additionalInfo: '', customerRef: '',
   awb: '', status: 'SHIPMENT CREATED', batchNo: '', chargeableWeight: '', estimatedDeliveryDate: '', billingAmount: '', remarks: '',
 };
@@ -137,10 +143,10 @@ export default function ShipmentForm({
   }, [mode, form.clientCode]);
 
   function fillPickup(l: ClientLocation) {
-    setForm((f) => ({ ...f, pickupAddress: l.address, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email }));
+    setForm((f) => ({ ...f, pickupAddress: l.address, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email, pickupAltContactPerson: l.altContactPerson, pickupAltContactNo: l.altContactNo }));
   }
   function fillDelivery(l: ClientLocation) {
-    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email }));
+    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email, deliveryAltContactPerson: l.altContactPerson, deliveryAltContactNo: l.altContactNo }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -152,6 +158,8 @@ export default function ShipmentForm({
       pickupContactPerson: form.pickupContactPerson,
       pickupContactNo: form.pickupContactNo,
       pickupContactEmail: form.pickupContactEmail,
+      pickupAltContactPerson: form.pickupAltContactPerson,
+      pickupAltContactNo: form.pickupAltContactNo,
       noOfPieces: Number(form.noOfPieces) || 0,
       weightKg: Number(form.weightKg) || 0,
       dimensions: form.dimensions,
@@ -160,6 +168,8 @@ export default function ShipmentForm({
       deliveryContactPerson: form.deliveryContactPerson,
       deliveryContactNo: form.deliveryContactNo,
       deliveryContactEmail: form.deliveryContactEmail,
+      deliveryAltContactPerson: form.deliveryAltContactPerson,
+      deliveryAltContactNo: form.deliveryAltContactNo,
       shipmentType: form.shipmentType,
       mode: form.mode,
       shipmentCategory: form.shipmentCategory,
@@ -248,6 +258,12 @@ export default function ShipmentForm({
         <Field label="Contact email">
           <input className={inputCls} value={form.pickupContactEmail} onChange={(e) => set('pickupContactEmail', e.target.value)} />
         </Field>
+        <Field label="Alternate contact person">
+          <input className={inputCls} value={form.pickupAltContactPerson} onChange={(e) => set('pickupAltContactPerson', e.target.value)} />
+        </Field>
+        <Field label="Alternate contact number">
+          <input className={inputCls} value={form.pickupAltContactNo} onChange={(e) => set('pickupAltContactNo', e.target.value)} />
+        </Field>
       </Section>
 
       <Section title="Parcel">
@@ -278,6 +294,12 @@ export default function ShipmentForm({
         </Field>
         <Field label="Contact email">
           <input className={inputCls} value={form.deliveryContactEmail} onChange={(e) => set('deliveryContactEmail', e.target.value)} />
+        </Field>
+        <Field label="Alternate contact person">
+          <input className={inputCls} value={form.deliveryAltContactPerson} onChange={(e) => set('deliveryAltContactPerson', e.target.value)} />
+        </Field>
+        <Field label="Alternate contact number">
+          <input className={inputCls} value={form.deliveryAltContactNo} onChange={(e) => set('deliveryAltContactNo', e.target.value)} />
         </Field>
         <Field label="Additional information" full>
           <textarea rows={2} className={inputCls} value={form.additionalInfo} onChange={(e) => set('additionalInfo', e.target.value)} />

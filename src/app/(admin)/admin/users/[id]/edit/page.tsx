@@ -8,7 +8,16 @@ import { emptyLocation, type ClientDetail, type ClientLocation } from '@/lib/adm
 import BrandLoader from '@/components/BrandLoader';
 
 function toInput(l: ClientLocation) {
-  return { label: l.label, address: l.address, pincode: l.pincode, contactNo: l.contactNo, email: l.email, contactPerson: l.contactPerson };
+  return {
+    label: l.label,
+    address: l.address,
+    pincode: l.pincode,
+    contactNo: l.contactNo,
+    email: l.email,
+    contactPerson: l.contactPerson,
+    altContactPerson: l.altContactPerson,
+    altContactNo: l.altContactNo,
+  };
 }
 
 function detailToForm(d: ClientDetail): Partial<ClientFormState> {

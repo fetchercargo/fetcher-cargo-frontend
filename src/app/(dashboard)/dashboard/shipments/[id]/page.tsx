@@ -29,6 +29,8 @@ interface ShipmentDetail {
   pickupContactPerson: string | null;
   pickupContactNo: string | null;
   pickupContactEmail: string | null;
+  pickupAltContactPerson: string | null;
+  pickupAltContactNo: string | null;
   noOfPieces: number | null;
   weightKg: number | null;
   dimensions: string | null;
@@ -38,6 +40,8 @@ interface ShipmentDetail {
   deliveryContactPerson: string | null;
   deliveryContactNo: string | null;
   deliveryContactEmail: string | null;
+  deliveryAltContactPerson: string | null;
+  deliveryAltContactNo: string | null;
   estimatedDeliveryDate: string | null;
   billingAmount: number | null;
   additionalInfo: string | null;
@@ -199,6 +203,8 @@ export default function ShipmentDetailPage() {
             <Row label="Contact No." value={data.pickupContactNo} />
             <Row label="Contact Person" value={data.pickupContactPerson} />
             <Row label="Contact Email" value={data.pickupContactEmail} />
+            <Row label="Alt. Contact Person" value={data.pickupAltContactPerson} />
+            <Row label="Alt. Contact No." value={data.pickupAltContactNo} />
           </Section>
 
           <Section title="Delivery">
@@ -209,6 +215,8 @@ export default function ShipmentDetailPage() {
             <Row label="Contact No." value={data.deliveryContactNo} />
             <Row label="Contact Person" value={data.deliveryContactPerson} />
             <Row label="Contact Email" value={data.deliveryContactEmail} />
+            <Row label="Alt. Contact Person" value={data.deliveryAltContactPerson} />
+            <Row label="Alt. Contact No." value={data.deliveryAltContactNo} />
           </Section>
         </div>
 
