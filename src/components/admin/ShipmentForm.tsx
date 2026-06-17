@@ -50,8 +50,17 @@ const DEFAULTS: ShipmentFormState = {
   awb: '', status: 'SHIPMENT CREATED', batchNo: '', chargeableWeight: '', estimatedDeliveryDate: '', billingAmount: '', remarks: '',
 };
 
+// The address-block fields, blanked — used to reset both sides when the selected
+// client changes, so one client's address can never carry into another's booking.
+const BLANK_ADDRESS = {
+  pickupAddress: '', pickupPincode: '', pickupContactPerson: '', pickupContactNo: '', pickupContactEmail: '', pickupAltContactPerson: '', pickupAltContactNo: '',
+  deliveryAddress: '', deliveryPincode: '', deliveryContactPerson: '', deliveryContactNo: '', deliveryContactEmail: '', deliveryAltContactPerson: '', deliveryAltContactNo: '',
+};
+
 const inputCls =
   'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow';
+const roInputCls =
+  'w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed';
 const labelCls = 'text-sm font-medium text-brand-dark';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -74,21 +83,34 @@ function Field({ label, required, children, full }: { label: string; required?: 
   );
 }
 
-// Fills an address block from the selected client's saved locations.
-function LocationPicker({ locations, onPick, label }: { locations: ClientLocation[]; onPick: (l: ClientLocation) => void; label: string }) {
-  if (locations.length === 0) return null;
+// Required selector of a client's saved locations. Used when booking ON BEHALF
+// of a client: the pickup/delivery address must come from a saved location, not
+// be free-typed.
+function SavedAddressSelect({
+  locations,
+  value,
+  onSelect,
+  label,
+  placeholder,
+}: {
+  locations: ClientLocation[];
+  value: string;
+  onSelect: (id: string, l: ClientLocation | null) => void;
+  label: string;
+  placeholder: string;
+}) {
   return (
     <div className="flex flex-col gap-1.5 sm:col-span-2">
-      <label className={labelCls}>{label}</label>
+      <label className={labelCls}>
+        {label} <span className="text-red-500">*</span>
+      </label>
       <select
         className={inputCls}
-        value=""
-        onChange={(e) => {
-          const l = locations.find((x) => String(x.id) === e.target.value);
-          if (l) onPick(l);
-        }}
+        value={value}
+        required
+        onChange={(e) => onSelect(e.target.value, locations.find((x) => String(x.id) === e.target.value) ?? null)}
       >
-        <option value="">Select a saved location to fill the fields…</option>
+        <option value="">{placeholder}</option>
         {locations.map((l) => (
           <option key={l.id} value={l.id}>
             {l.label}
@@ -118,29 +140,53 @@ export default function ShipmentForm({
   onSubmit: (payload: Record<string, unknown>) => void;
 }) {
   const [form, setForm] = useState<ShipmentFormState>({ ...DEFAULTS, ...initial });
+  // Booking on behalf of a client (create-for-client) restricts addresses to the
+  // client's saved locations; editing an existing shipment stays free-text.
+  const isBehalf = mode === 'create';
 
   function set<K extends keyof ShipmentFormState>(key: K, value: ShipmentFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  // Saved locations for the selected client (create-for-client only).
+  // Saved locations for the selected client, plus which client they belong to
+  // (so we can show a loading state instead of stale options after a switch).
   const [savedPickups, setSavedPickups] = useState<ClientLocation[]>([]);
   const [savedDeliveries, setSavedDeliveries] = useState<ClientLocation[]>([]);
+  const [locsClient, setLocsClient] = useState('');
+  const [pickupLocId, setPickupLocId] = useState('');
+  const [deliveryLocId, setDeliveryLocId] = useState('');
+
   useEffect(() => {
     if (mode !== 'create' || !form.clientCode) return;
+    const code = form.clientCode;
     let active = true;
-    fetch(`/api/admin/clients/${encodeURIComponent(form.clientCode)}/locations`)
+    fetch(`/api/admin/clients/${encodeURIComponent(code)}/locations`)
       .then((r) => (r.ok ? r.json() : { pickups: [], deliveries: [] }))
       .then((d) => {
         if (!active) return;
         setSavedPickups(d.pickups ?? []);
         setSavedDeliveries(d.deliveries ?? []);
+        setLocsClient(code);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        // Treat a failed lookup as "no saved locations" → free-text fallback.
+        setSavedPickups([]);
+        setSavedDeliveries([]);
+        setLocsClient(code);
+      });
     return () => {
       active = false;
     };
   }, [mode, form.clientCode]);
+
+  // Changing the client resets the chosen addresses (event handler — not the
+  // effect — so there is no cascading setState during render).
+  function selectClient(code: string) {
+    setPickupLocId('');
+    setDeliveryLocId('');
+    setForm((f) => ({ ...f, clientCode: code, ...BLANK_ADDRESS }));
+  }
 
   function fillPickup(l: ClientLocation) {
     setForm((f) => ({ ...f, pickupAddress: l.address, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email, pickupAltContactPerson: l.altContactPerson, pickupAltContactNo: l.altContactNo }));
@@ -148,6 +194,10 @@ export default function ShipmentForm({
   function fillDelivery(l: ClientLocation) {
     setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email, deliveryAltContactPerson: l.altContactPerson, deliveryAltContactNo: l.altContactNo }));
   }
+  const clearPickup = () =>
+    setForm((f) => ({ ...f, pickupAddress: '', pickupPincode: '', pickupContactPerson: '', pickupContactNo: '', pickupContactEmail: '', pickupAltContactPerson: '', pickupAltContactNo: '' }));
+  const clearDelivery = () =>
+    setForm((f) => ({ ...f, deliveryAddress: '', deliveryPincode: '', deliveryContactPerson: '', deliveryContactNo: '', deliveryContactEmail: '', deliveryAltContactPerson: '', deliveryAltContactNo: '' }));
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -193,12 +243,123 @@ export default function ShipmentForm({
     });
   }
 
+  const locsReady = locsClient === form.clientCode;
+
+  // Address blocks (editable free-text vs locked-to-saved) and the shared,
+  // always-editable contact fields, declared once and slotted into each branch.
+  const pickupAddressEditable = (
+    <>
+      <Field label="Pickup address" required full>
+        <textarea rows={2} className={inputCls} value={form.pickupAddress} onChange={(e) => set('pickupAddress', e.target.value)} />
+      </Field>
+      <Field label="Pincode / ZIP" required>
+        <input className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} />
+      </Field>
+    </>
+  );
+  const pickupAddressSaved = (
+    <>
+      <SavedAddressSelect
+        label="Pickup location"
+        placeholder="Select the client's saved pickup location…"
+        locations={savedPickups}
+        value={pickupLocId}
+        onSelect={(id, l) => {
+          setPickupLocId(id);
+          if (l) fillPickup(l);
+          else clearPickup();
+        }}
+      />
+      <Field label="Pickup address" required full>
+        <textarea rows={2} className={roInputCls} value={form.pickupAddress} readOnly placeholder="Choose a saved pickup location above" />
+      </Field>
+      <Field label="Pincode / ZIP" required>
+        <input className={roInputCls} value={form.pickupPincode} readOnly />
+      </Field>
+    </>
+  );
+  const pickupContactFields = (
+    <>
+      <Field label="Contact number" required>
+        <input className={inputCls} value={form.pickupContactNo} onChange={(e) => set('pickupContactNo', e.target.value)} />
+      </Field>
+      <Field label="Contact person">
+        <input className={inputCls} value={form.pickupContactPerson} onChange={(e) => set('pickupContactPerson', e.target.value)} />
+      </Field>
+      <Field label="Contact email">
+        <input className={inputCls} value={form.pickupContactEmail} onChange={(e) => set('pickupContactEmail', e.target.value)} />
+      </Field>
+      <Field label="Alternate contact person">
+        <input className={inputCls} value={form.pickupAltContactPerson} onChange={(e) => set('pickupAltContactPerson', e.target.value)} />
+      </Field>
+      <Field label="Alternate contact number">
+        <input className={inputCls} value={form.pickupAltContactNo} onChange={(e) => set('pickupAltContactNo', e.target.value)} />
+      </Field>
+    </>
+  );
+
+  const deliveryAddressEditable = (
+    <>
+      <Field label="Delivery address" required full>
+        <textarea rows={2} className={inputCls} value={form.deliveryAddress} onChange={(e) => set('deliveryAddress', e.target.value)} />
+      </Field>
+      <Field label="Pincode / ZIP" required>
+        <input className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} />
+      </Field>
+    </>
+  );
+  const deliveryAddressSaved = (
+    <>
+      <SavedAddressSelect
+        label="Delivery location"
+        placeholder="Select the client's saved delivery location…"
+        locations={savedDeliveries}
+        value={deliveryLocId}
+        onSelect={(id, l) => {
+          setDeliveryLocId(id);
+          if (l) fillDelivery(l);
+          else clearDelivery();
+        }}
+      />
+      <Field label="Delivery address" required full>
+        <textarea rows={2} className={roInputCls} value={form.deliveryAddress} readOnly placeholder="Choose a saved delivery location above" />
+      </Field>
+      <Field label="Pincode / ZIP" required>
+        <input className={roInputCls} value={form.deliveryPincode} readOnly />
+      </Field>
+    </>
+  );
+  const deliveryContactFields = (
+    <>
+      <Field label="Contact number" required>
+        <input className={inputCls} value={form.deliveryContactNo} onChange={(e) => set('deliveryContactNo', e.target.value)} />
+      </Field>
+      <Field label="Contact person">
+        <input className={inputCls} value={form.deliveryContactPerson} onChange={(e) => set('deliveryContactPerson', e.target.value)} />
+      </Field>
+      <Field label="Contact email">
+        <input className={inputCls} value={form.deliveryContactEmail} onChange={(e) => set('deliveryContactEmail', e.target.value)} />
+      </Field>
+      <Field label="Alternate contact person">
+        <input className={inputCls} value={form.deliveryAltContactPerson} onChange={(e) => set('deliveryAltContactPerson', e.target.value)} />
+      </Field>
+      <Field label="Alternate contact number">
+        <input className={inputCls} value={form.deliveryAltContactNo} onChange={(e) => set('deliveryAltContactNo', e.target.value)} />
+      </Field>
+    </>
+  );
+  const additionalInfoField = (
+    <Field label="Additional information" full>
+      <textarea rows={2} className={inputCls} value={form.additionalInfo} onChange={(e) => set('additionalInfo', e.target.value)} />
+    </Field>
+  );
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {mode === 'create' && (
         <Section title="Client">
           <Field label="Book on behalf of" required full>
-            <select className={inputCls} value={form.clientCode} onChange={(e) => set('clientCode', e.target.value)} required>
+            <select className={inputCls} value={form.clientCode} onChange={(e) => selectClient(e.target.value)} required>
               <option value="">Select a client…</option>
               {clients.map((c) => (
                 <option key={c.clientCode} value={c.clientCode}>
@@ -242,28 +403,21 @@ export default function ShipmentForm({
       </Section>
 
       <Section title="Pickup details">
-        <LocationPicker locations={savedPickups} onPick={fillPickup} label="Use a saved pickup location" />
-        <Field label="Pickup address" required full>
-          <textarea rows={2} className={inputCls} value={form.pickupAddress} onChange={(e) => set('pickupAddress', e.target.value)} />
-        </Field>
-        <Field label="Pincode / ZIP" required>
-          <input className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} />
-        </Field>
-        <Field label="Contact number" required>
-          <input className={inputCls} value={form.pickupContactNo} onChange={(e) => set('pickupContactNo', e.target.value)} />
-        </Field>
-        <Field label="Contact person">
-          <input className={inputCls} value={form.pickupContactPerson} onChange={(e) => set('pickupContactPerson', e.target.value)} />
-        </Field>
-        <Field label="Contact email">
-          <input className={inputCls} value={form.pickupContactEmail} onChange={(e) => set('pickupContactEmail', e.target.value)} />
-        </Field>
-        <Field label="Alternate contact person">
-          <input className={inputCls} value={form.pickupAltContactPerson} onChange={(e) => set('pickupAltContactPerson', e.target.value)} />
-        </Field>
-        <Field label="Alternate contact number">
-          <input className={inputCls} value={form.pickupAltContactNo} onChange={(e) => set('pickupAltContactNo', e.target.value)} />
-        </Field>
+        {!isBehalf ? (
+          <>{pickupAddressEditable}{pickupContactFields}</>
+        ) : !form.clientCode ? (
+          <p className="text-sm text-gray-400 sm:col-span-2">Select a client above to choose their saved pickup address.</p>
+        ) : !locsReady ? (
+          <p className="text-sm text-gray-400 sm:col-span-2">Loading saved addresses…</p>
+        ) : savedPickups.length > 0 ? (
+          <>{pickupAddressSaved}{pickupContactFields}</>
+        ) : (
+          <>
+            <p className="text-xs text-amber-600 sm:col-span-2">This client has no saved pickup location — enter it below.</p>
+            {pickupAddressEditable}
+            {pickupContactFields}
+          </>
+        )}
       </Section>
 
       <Section title="Parcel">
@@ -279,31 +433,22 @@ export default function ShipmentForm({
       </Section>
 
       <Section title="Delivery details">
-        <LocationPicker locations={savedDeliveries} onPick={fillDelivery} label="Use a saved delivery location" />
-        <Field label="Delivery address" required full>
-          <textarea rows={2} className={inputCls} value={form.deliveryAddress} onChange={(e) => set('deliveryAddress', e.target.value)} />
-        </Field>
-        <Field label="Pincode / ZIP" required>
-          <input className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} />
-        </Field>
-        <Field label="Contact number" required>
-          <input className={inputCls} value={form.deliveryContactNo} onChange={(e) => set('deliveryContactNo', e.target.value)} />
-        </Field>
-        <Field label="Contact person">
-          <input className={inputCls} value={form.deliveryContactPerson} onChange={(e) => set('deliveryContactPerson', e.target.value)} />
-        </Field>
-        <Field label="Contact email">
-          <input className={inputCls} value={form.deliveryContactEmail} onChange={(e) => set('deliveryContactEmail', e.target.value)} />
-        </Field>
-        <Field label="Alternate contact person">
-          <input className={inputCls} value={form.deliveryAltContactPerson} onChange={(e) => set('deliveryAltContactPerson', e.target.value)} />
-        </Field>
-        <Field label="Alternate contact number">
-          <input className={inputCls} value={form.deliveryAltContactNo} onChange={(e) => set('deliveryAltContactNo', e.target.value)} />
-        </Field>
-        <Field label="Additional information" full>
-          <textarea rows={2} className={inputCls} value={form.additionalInfo} onChange={(e) => set('additionalInfo', e.target.value)} />
-        </Field>
+        {!isBehalf ? (
+          <>{deliveryAddressEditable}{deliveryContactFields}{additionalInfoField}</>
+        ) : !form.clientCode ? (
+          <p className="text-sm text-gray-400 sm:col-span-2">Select a client above to choose their saved delivery address.</p>
+        ) : !locsReady ? (
+          <p className="text-sm text-gray-400 sm:col-span-2">Loading saved addresses…</p>
+        ) : savedDeliveries.length > 0 ? (
+          <>{deliveryAddressSaved}{deliveryContactFields}{additionalInfoField}</>
+        ) : (
+          <>
+            <p className="text-xs text-amber-600 sm:col-span-2">This client has no saved delivery location — enter it below.</p>
+            {deliveryAddressEditable}
+            {deliveryContactFields}
+            {additionalInfoField}
+          </>
+        )}
       </Section>
 
       {mode === 'edit' && (
