@@ -50,7 +50,7 @@ const INITIAL: FormState = {
   deliveryContactEmail: '',
   shipmentType: 'COMMERCIAL',
   mode: 'SURFACE',
-  shipmentCategory: 'DOC',
+  shipmentCategory: 'NON-DOC',
   isDg: false,
   additionalInfo: '',
   customerRef: '',

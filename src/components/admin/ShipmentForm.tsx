@@ -40,7 +40,7 @@ const DEFAULTS: ShipmentFormState = {
   clientCode: '', scope: 'DOMESTIC', pickupAddress: '', pickupPincode: '', pickupContactPerson: '',
   pickupContactNo: '', pickupContactEmail: '', noOfPieces: '1', weightKg: '', dimensions: '',
   deliveryAddress: '', deliveryPincode: '', deliveryContactPerson: '', deliveryContactNo: '', deliveryContactEmail: '',
-  shipmentType: 'COMMERCIAL', mode: 'SURFACE', shipmentCategory: 'DOC', isDg: false, additionalInfo: '', customerRef: '',
+  shipmentType: 'COMMERCIAL', mode: 'SURFACE', shipmentCategory: 'NON-DOC', isDg: false, additionalInfo: '', customerRef: '',
   awb: '', status: 'SHIPMENT CREATED', batchNo: '', chargeableWeight: '', estimatedDeliveryDate: '', billingAmount: '', remarks: '',
 };
 
