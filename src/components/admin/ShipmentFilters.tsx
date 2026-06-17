@@ -91,15 +91,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function ShipmentFilters({
   value,
   onChange,
-  clients,
+  clients = [],
   resultCount,
   capped,
+  scope = 'admin',
 }: {
   value: ShipmentFilterValues;
   onChange: (v: ShipmentFilterValues) => void;
-  clients: ClientOption[];
+  clients?: ClientOption[];
   resultCount: number | null;
   capped: boolean;
+  // 'client' hides the Client-code and Source filters (a client only ever sees
+  // their own shipments), reusing everything else.
+  scope?: 'admin' | 'client';
 }) {
   const [more, setMore] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -188,14 +192,16 @@ export default function ShipmentFilters({
       {/* More filters */}
       {more && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-gray-100">
-          <Field label="Client code">
-            <input list="admin-client-codes" className={`${ctl} w-full`} value={value.client} onChange={(e) => set('client', e.target.value)} placeholder="FCC0001" />
-            <datalist id="admin-client-codes">
-              {clients.map((c) => (
-                <option key={c.clientCode} value={c.clientCode}>{c.name}</option>
-              ))}
-            </datalist>
-          </Field>
+          {scope !== 'client' && (
+            <Field label="Client code">
+              <input list="admin-client-codes" className={`${ctl} w-full`} value={value.client} onChange={(e) => set('client', e.target.value)} placeholder="FCC0001" />
+              <datalist id="admin-client-codes">
+                {clients.map((c) => (
+                  <option key={c.clientCode} value={c.clientCode}>{c.name}</option>
+                ))}
+              </datalist>
+            </Field>
+          )}
           <Field label="Mode">
             <select className={`${ctl} w-full`} value={value.mode} onChange={(e) => set('mode', e.target.value)}>
               <option value="">Any</option>
@@ -227,13 +233,15 @@ export default function ShipmentFilters({
               <option value="no">No</option>
             </select>
           </Field>
-          <Field label="Source">
-            <select className={`${ctl} w-full`} value={value.source} onChange={(e) => set('source', e.target.value)}>
-              <option value="">Any</option>
-              <option value="website">Website</option>
-              <option value="sheet">Sheet / Ops</option>
-            </select>
-          </Field>
+          {scope !== 'client' && (
+            <Field label="Source">
+              <select className={`${ctl} w-full`} value={value.source} onChange={(e) => set('source', e.target.value)}>
+                <option value="">Any</option>
+                <option value="website">Website</option>
+                <option value="sheet">Sheet / Ops</option>
+              </select>
+            </Field>
+          )}
         </div>
       )}
 
