@@ -5,15 +5,17 @@ import { emptyLocation, type ClientLocationInput } from '@/lib/admin';
 const inputCls =
   'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent';
 
-/** Editable, repeatable list of pickup or delivery locations (≥1 required). */
+/** Editable, repeatable list of pickup or delivery locations (pickup ≥1 required; delivery optional). */
 export default function LocationRows({
   kind,
   rows,
   onChange,
+  required = true,
 }: {
   kind: 'pickup' | 'delivery';
   rows: ClientLocationInput[];
   onChange: (rows: ClientLocationInput[]) => void;
+  required?: boolean;
 }) {
   const label = kind === 'pickup' ? 'Pickup' : 'Delivery';
 
@@ -24,7 +26,9 @@ export default function LocationRows({
   return (
     <div className="space-y-3">
       {rows.length === 0 && (
-        <p className="text-sm text-gray-400">No {label.toLowerCase()} locations yet — add at least one.</p>
+        <p className="text-sm text-gray-400">
+          No {label.toLowerCase()} locations yet{required ? ' — add at least one.' : ' (optional).'}
+        </p>
       )}
       {rows.map((r, i) => (
         <div key={i} className="rounded-lg border border-gray-200 p-3 bg-gray-50/50">

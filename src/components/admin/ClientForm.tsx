@@ -119,7 +119,7 @@ export default function ClientForm({
       if (!isCreate && !form.clientCode.trim()) return setVErr('A client code is required for client accounts.');
       const ok = (l: ClientLocationInput) => l.label.trim() !== '' && l.address.trim() !== '';
       if (!form.pickups.some(ok)) return setVErr('Add at least one pickup location (with a label and address).');
-      if (!form.deliveries.some(ok)) return setVErr('Add at least one delivery location (with a label and address).');
+      // Delivery locations are optional at onboarding.
     }
     onSubmit({
       ...(isCreate ? { email: form.email } : {}),
@@ -203,8 +203,8 @@ export default function ClientForm({
           <Section title="Pickup locations" subtitle="At least one is required.">
             <LocationRows kind="pickup" rows={form.pickups} onChange={(rows) => set('pickups', rows)} />
           </Section>
-          <Section title="Delivery locations" subtitle="At least one is required.">
-            <LocationRows kind="delivery" rows={form.deliveries} onChange={(rows) => set('deliveries', rows)} />
+          <Section title="Delivery locations" subtitle="Optional.">
+            <LocationRows kind="delivery" required={false} rows={form.deliveries} onChange={(rows) => set('deliveries', rows)} />
           </Section>
         </>
       )}
