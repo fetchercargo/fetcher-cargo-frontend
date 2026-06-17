@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { emptyLocation, type ClientLocationInput } from '@/lib/admin';
 import { BrandDots } from '@/components/BrandLoader';
 import LocationRows from '@/components/admin/LocationRows';
@@ -80,6 +80,7 @@ export default function ClientForm({
 }) {
   const [form, setForm] = useState<ClientFormState>({ ...DEFAULTS, ...initial });
   const [vErr, setVErr] = useState<string | null>(null);
+  const codeTouched = useRef(false);
   const isClient = form.role === 'user';
   const isCreate = mode === 'create';
 
@@ -87,11 +88,35 @@ export default function ClientForm({
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  // On create, pre-fill a suggested client code (FCC####). It stays editable;
+  // we never overwrite a code the admin has started typing, and the backend
+  // re-assigns authoritatively at create time (or auto-generates if left blank).
+  useEffect(() => {
+    if (mode !== 'create') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/next-client-code', { headers: { Accept: 'application/json' } });
+        if (!res.ok) return;
+        const data = (await res.json()) as { code?: string };
+        if (cancelled || codeTouched.current || !data?.code) return;
+        setForm((f) => (f.clientCode.trim() === '' ? { ...f, clientCode: data.code! } : f));
+      } catch {
+        /* non-fatal — the admin can type a code, or leave it blank to auto-generate */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setVErr(null);
     if (isClient) {
-      if (!form.clientCode.trim()) return setVErr('A client code is required for client accounts.');
+      // On create a blank code is fine — the backend auto-generates one. On edit
+      // a client must keep a code (clearing it would orphan their data).
+      if (!isCreate && !form.clientCode.trim()) return setVErr('A client code is required for client accounts.');
       const ok = (l: ClientLocationInput) => l.label.trim() !== '' && l.address.trim() !== '';
       if (!form.pickups.some(ok)) return setVErr('Add at least one pickup location (with a label and address).');
       if (!form.deliveries.some(ok)) return setVErr('Add at least one delivery location (with a label and address).');
@@ -100,7 +125,7 @@ export default function ClientForm({
       ...(isCreate ? { email: form.email } : {}),
       name: form.name,
       role: form.role,
-      clientCode: form.clientCode,
+      clientCode: isClient ? form.clientCode : '',
       businessName: form.businessName,
       businessAddress: form.businessAddress,
       businessEmail: form.businessEmail,
@@ -133,8 +158,19 @@ export default function ClientForm({
               <option value="admin">Admin</option>
             </select>
           </Field>
-          <Field label="Client code" required={isClient}>
-            <input className={inputCls} value={form.clientCode} onChange={(e) => set('clientCode', e.target.value)} placeholder="e.g. FCC0002" />
+          <Field label="Client code" required={isClient && !isCreate}>
+            <input
+              className={inputCls}
+              value={form.clientCode}
+              onChange={(e) => {
+                codeTouched.current = true;
+                set('clientCode', e.target.value);
+              }}
+              placeholder="e.g. FCC0002"
+            />
+            {isClient && isCreate && (
+              <p className="text-xs text-gray-400">Auto-generated. Leave as-is, or override to match an existing code.</p>
+            )}
           </Field>
           {isCreate && (
             <p className="text-xs text-gray-400 sm:col-span-2">A temporary password is generated automatically and emailed to the user on creation.</p>
