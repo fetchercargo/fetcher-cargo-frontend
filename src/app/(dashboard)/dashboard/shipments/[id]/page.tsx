@@ -35,6 +35,7 @@ interface ShipmentDetail {
   weightKg: number | null;
   dimensions: string | null;
   chargeableWeight: number | null;
+  parcels: { noOfPieces: number | null; weightKg: number | null; dimensions: string | null }[] | null;
   deliveryAddress: string | null;
   deliveryPincode: string | null;
   deliveryContactPerson: string | null;
@@ -220,11 +221,18 @@ export default function ShipmentDetailPage() {
           </Section>
         </div>
 
-        <Section title="Parcel">
-          <Row label="No. of Pieces" value={data.noOfPieces} />
-          <Row label="Weight" value={data.weightKg != null ? `${data.weightKg} kg` : null} />
-          <Row label="Dimensions (cm)" value={data.dimensions} />
+        <Section title="Parcels">
+          <Row label="Total Pieces" value={data.noOfPieces} />
+          <Row label="Total Weight" value={data.weightKg != null ? `${data.weightKg} kg` : null} />
           <Row label="Chargeable Weight" value={data.chargeableWeight != null ? `${data.chargeableWeight} kg` : null} />
+          {(data.parcels ?? []).map((p, i) => (
+            <div key={i} className="sm:col-span-2">
+              <Row
+                label={`Parcel ${i + 1}`}
+                value={`${p.noOfPieces ?? '—'} pcs · ${p.weightKg != null ? `${p.weightKg} kg` : '—'}${p.dimensions ? ` · ${p.dimensions}` : ''}`}
+              />
+            </div>
+          ))}
         </Section>
 
         <Section title="Commercial & Ops">

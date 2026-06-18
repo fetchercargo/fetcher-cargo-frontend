@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import ShipmentForm, { type ShipmentFormState } from '@/components/admin/ShipmentForm';
+import { emptyParcel } from '@/components/admin/ParcelRows';
 import TrackingEditor from '@/components/admin/TrackingEditor';
 import { statusClasses, type ShipmentDetail, type TrackingUpdate } from '@/lib/admin';
 import BrandLoader from '@/components/BrandLoader';
@@ -15,7 +16,9 @@ function detailToForm(d: ShipmentDetail): Partial<ShipmentFormState> {
     scope: s(d.scope), pickupAddress: s(d.pickupAddress), pickupPincode: s(d.pickupPincode),
     pickupContactPerson: s(d.pickupContactPerson), pickupContactNo: s(d.pickupContactNo), pickupContactEmail: s(d.pickupContactEmail),
     pickupAltContactPerson: s(d.pickupAltContactPerson), pickupAltContactNo: s(d.pickupAltContactNo),
-    noOfPieces: n(d.noOfPieces), weightKg: n(d.weightKg), dimensions: s(d.dimensions),
+    parcels: d.parcels && d.parcels.length
+      ? d.parcels.map((p) => ({ noOfPieces: n(p.noOfPieces), weightKg: n(p.weightKg), dimensions: s(p.dimensions) }))
+      : [emptyParcel()],
     deliveryAddress: s(d.deliveryAddress), deliveryPincode: s(d.deliveryPincode),
     deliveryContactPerson: s(d.deliveryContactPerson), deliveryContactNo: s(d.deliveryContactNo), deliveryContactEmail: s(d.deliveryContactEmail),
     deliveryAltContactPerson: s(d.deliveryAltContactPerson), deliveryAltContactNo: s(d.deliveryAltContactNo),

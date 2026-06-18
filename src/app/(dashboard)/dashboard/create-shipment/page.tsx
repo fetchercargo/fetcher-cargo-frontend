@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BrandDots } from '@/components/BrandLoader';
+import ParcelRows, { emptyParcel, type ParcelFormState } from '@/components/admin/ParcelRows';
 import type { ClientLocation } from '@/lib/admin';
 
 const SCOPES = ['DOMESTIC', 'INTERNATIONAL'];
@@ -19,9 +20,7 @@ interface FormState {
   pickupContactEmail: string;
   pickupAltContactPerson: string;
   pickupAltContactNo: string;
-  noOfPieces: string;
-  weightKg: string;
-  dimensions: string;
+  parcels: ParcelFormState[];
   deliveryAddress: string;
   deliveryPincode: string;
   deliveryContactPerson: string;
@@ -46,9 +45,7 @@ const INITIAL: FormState = {
   pickupContactEmail: '',
   pickupAltContactPerson: '',
   pickupAltContactNo: '',
-  noOfPieces: '1',
-  weightKg: '',
-  dimensions: '',
+  parcels: [emptyParcel()],
   deliveryAddress: '',
   deliveryPincode: '',
   deliveryContactPerson: '',
@@ -155,9 +152,11 @@ export default function CreateShipmentPage() {
       pickupContactEmail: form.pickupContactEmail,
       pickupAltContactPerson: form.pickupAltContactPerson,
       pickupAltContactNo: form.pickupAltContactNo,
-      noOfPieces: Number(form.noOfPieces) || 0,
-      weightKg: Number(form.weightKg) || 0,
-      dimensions: form.dimensions,
+      parcels: form.parcels.map((p) => ({
+        noOfPieces: Number(p.noOfPieces) || 0,
+        weightKg: Number(p.weightKg) || 0,
+        dimensions: p.dimensions,
+      })),
       deliveryAddress: form.deliveryAddress,
       deliveryPincode: form.deliveryPincode,
       deliveryContactPerson: form.deliveryContactPerson,
@@ -364,19 +363,8 @@ export default function CreateShipmentPage() {
         </Section>
 
         {/* Parcel */}
-        <Section title="Parcel">
-          <div className="flex flex-col gap-1.5">
-            <label className={labelCls} htmlFor="noOfPieces">No. of pieces <span className="text-red-500">*</span></label>
-            <input id="noOfPieces" required type="number" min="1" step="1" className={inputCls} value={form.noOfPieces} onChange={(e) => set('noOfPieces', e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelCls} htmlFor="weightKg">Weight (kg) <span className="text-red-500">*</span></label>
-            <input id="weightKg" required type="number" min="0" step="0.001" className={inputCls} value={form.weightKg} onChange={(e) => set('weightKg', e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <label className={labelCls} htmlFor="dimensions">Dimensions (cm)</label>
-            <input id="dimensions" placeholder="e.g. 30×20×15" className={inputCls} value={form.dimensions} onChange={(e) => set('dimensions', e.target.value)} />
-          </div>
+        <Section title="Parcels">
+          <ParcelRows rows={form.parcels} onChange={(p) => set('parcels', p)} />
         </Section>
 
         {/* Additional */}

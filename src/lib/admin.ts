@@ -39,6 +39,12 @@ export interface TrackingUpdate {
   sortOrder: number;
 }
 
+export interface Parcel {
+  noOfPieces: number | null;
+  weightKg: number | null;
+  dimensions: string | null;
+}
+
 export interface ShipmentDetail {
   id: number;
   awb: string | null;
@@ -58,10 +64,11 @@ export interface ShipmentDetail {
   pickupContactEmail: string | null;
   pickupAltContactPerson: string | null;
   pickupAltContactNo: string | null;
-  noOfPieces: number | null;
-  weightKg: number | null;
+  noOfPieces: number | null; // total pieces across parcels
+  weightKg: number | null; // total weight across parcels
   dimensions: string | null;
   chargeableWeight: number | null;
+  parcels: Parcel[];
   deliveryAddress: string | null;
   deliveryPincode: string | null;
   deliveryContactPerson: string | null;
