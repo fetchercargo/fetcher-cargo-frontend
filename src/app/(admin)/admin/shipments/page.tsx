@@ -66,6 +66,14 @@ export default function AdminShipmentsListPage() {
             </svg>
             Export
           </button>
+          <Link href="/admin/shipments/bulk" className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-brand-orange border border-brand-orange rounded-lg hover:bg-orange-50 transition-colors whitespace-nowrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M7 10l5-5 5 5" />
+              <path d="M12 5v12" />
+            </svg>
+            Bulk upload
+          </Link>
           <Link href="/admin/shipments/new" className="px-4 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors whitespace-nowrap">
             + Create shipment
           </Link>

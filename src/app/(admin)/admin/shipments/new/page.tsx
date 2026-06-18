@@ -85,9 +85,14 @@ export default function AdminNewShipmentPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Create shipment for a client</h1>
           <p className="text-gray-500 mt-1">Pick the client, fill the booking. An AWB is assigned automatically.</p>
         </div>
-        <Link href="/admin/shipments" className="hidden sm:inline text-sm font-semibold text-brand-gray hover:text-brand-orange transition-colors whitespace-nowrap">
-          ← All shipments
-        </Link>
+        <div className="hidden sm:flex items-center gap-4 whitespace-nowrap">
+          <Link href="/admin/shipments/bulk" className="text-sm font-semibold text-brand-orange hover:text-brand-coral transition-colors">
+            Bulk upload
+          </Link>
+          <Link href="/admin/shipments" className="text-sm font-semibold text-brand-gray hover:text-brand-orange transition-colors">
+            ← All shipments
+          </Link>
+        </div>
       </div>
       <div className="mt-6">
         <ShipmentForm key={formKey} mode="create" clients={clients} submitting={submitting} error={error} submitLabel="Create shipment" onSubmit={handleSubmit} />

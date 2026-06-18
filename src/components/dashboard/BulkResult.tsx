@@ -7,10 +7,14 @@ export default function BulkResult({
   created,
   batchNo,
   onUploadAnother,
+  viewAllHref = '/dashboard/shipments',
+  viewAllLabel = 'View My Shipments',
 }: {
   created: ShipmentSummary[];
   batchNo: string;
   onUploadAnother: () => void;
+  viewAllHref?: string;
+  viewAllLabel?: string;
 }) {
   return (
     <div className="max-w-2xl mx-auto">
@@ -47,10 +51,10 @@ export default function BulkResult({
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
           <Link
-            href="/dashboard/shipments"
+            href={viewAllHref}
             className="px-6 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors"
           >
-            View My Shipments
+            {viewAllLabel}
           </Link>
           <button
             type="button"

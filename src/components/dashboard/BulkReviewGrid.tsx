@@ -14,6 +14,7 @@ import {
   type ShipmentInput,
   type ShipmentSummary,
 } from '@/lib/bulk';
+import type { ClientOption } from '@/lib/admin';
 
 const PAGE_SIZE = 50;
 
@@ -36,10 +37,16 @@ export default function BulkReviewGrid({
   response,
   onCreated,
   onCancel,
+  createUrl = '/api/shipments/bulk',
+  clients,
 }: {
   response: BulkValidateResponse;
   onCreated: (created: ShipmentSummary[], batchNo: string) => void;
   onCancel: () => void;
+  // Admin mode: when set, a required "book on behalf of" client picker is shown
+  // and the chosen clientCode is sent with the create to createUrl.
+  createUrl?: string;
+  clients?: ClientOption[];
 }) {
   const allowed = response.allowedValues ?? EMPTY_ALLOWED;
 
@@ -58,6 +65,9 @@ export default function BulkReviewGrid({
   const [errorsOnly, setErrorsOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+  const [clientCode, setClientCode] = useState('');
+  // In admin mode, require the typed code to match a real client before create.
+  const clientValid = !clients || clients.some((c) => c.clientCode === clientCode);
 
   const totalErrors = useMemo(() => rows.reduce((n, r) => n + r.errors.length, 0), [rows]);
   const rowsWithErrors = useMemo(() => rows.filter((r) => r.errors.length > 0).length, [rows]);
@@ -88,14 +98,15 @@ export default function BulkReviewGrid({
   }
 
   async function handleCreate() {
-    if (totalErrors > 0 || rows.length === 0) return;
+    if (totalErrors > 0 || rows.length === 0 || !clientValid) return;
     setSubmitting(true);
     setBanner(null);
     try {
-      const res = await fetch('/api/shipments/bulk', {
+      const payloadRows = rows.map((r) => r.input);
+      const res = await fetch(createUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: rows.map((r) => r.input) }),
+        body: JSON.stringify(clients ? { clientCode, rows: payloadRows } : { rows: payloadRows }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 201) {
@@ -198,7 +209,24 @@ export default function BulkReviewGrid({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {clients && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 whitespace-nowrap">Book on behalf of <span className="text-red-500">*</span></label>
+              <input
+                list="bulk-client-codes"
+                value={clientCode}
+                onChange={(e) => setClientCode(e.target.value)}
+                placeholder="Search client code…"
+                className="h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent"
+              />
+              <datalist id="bulk-client-codes">
+                {clients.map((c) => (
+                  <option key={c.clientCode} value={c.clientCode}>{c.name} ({c.email})</option>
+                ))}
+              </datalist>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-sm text-gray-600 select-none">
             <input
               type="checkbox"
@@ -216,7 +244,7 @@ export default function BulkReviewGrid({
           </button>
           <button
             type="button"
-            disabled={totalErrors > 0 || submitting || rows.length === 0}
+            disabled={totalErrors > 0 || submitting || rows.length === 0 || !clientValid}
             onClick={handleCreate}
             className="px-6 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
