@@ -38,6 +38,15 @@ OUT_PATH = os.path.join(
     "public", "templates", "fetcher-bulk-shipments-template.xlsx",
 )
 
+# 5 parcel column-sets; only Parcel 1's pieces + weight are required.
+_PARCEL_COLUMNS = []
+for _n in range(1, 6):
+    _PARCEL_COLUMNS += [
+        (f"PARCEL {_n} NO OF PIECES", _n == 1, None),
+        (f"PARCEL {_n} WEIGHT (IN KG)", _n == 1, None),
+        (f"PARCEL {_n} DIMENSIONS (IN CM)", False, None),
+    ]
+
 # (header, required?, dropdown values or None)
 COLUMNS = [
     ("REF", False, None),
@@ -49,9 +58,7 @@ COLUMNS = [
     ("PICK UP CONTACT EMAIL", False, None),
     ("PICK UP ALTERNATE CONTACT PERSON", False, None),
     ("PICK UP ALTERNATE CONTACT NO", False, None),
-    ("NO OF PIECES", True, None),
-    ("WEIGHT (IN KG)", True, None),
-    ("DIMENSIONS (IN CM)", False, None),
+    *_PARCEL_COLUMNS,
     ("DELIVERY ADDRESS", True, None),
     ("DELIVERY PINCODE/ZIP CODE", True, None),
     ("DELIVERY CONTACT NO", True, None),
@@ -76,9 +83,6 @@ WIDTHS = {
     "PICK UP CONTACT EMAIL": 26,
     "PICK UP ALTERNATE CONTACT PERSON": 28,
     "PICK UP ALTERNATE CONTACT NO": 26,
-    "NO OF PIECES": 13,
-    "WEIGHT (IN KG)": 14,
-    "DIMENSIONS (IN CM)": 18,
     "DELIVERY ADDRESS": 40,
     "DELIVERY PINCODE/ZIP CODE": 20,
     "DELIVERY CONTACT NO": 18,
@@ -92,6 +96,10 @@ WIDTHS = {
     "IS THIS A DG SHIPMENT?": 22,
     "ADDITIONAL INFORMATION": 34,
 }
+for _n in range(1, 6):
+    WIDTHS[f"PARCEL {_n} NO OF PIECES"] = 16
+    WIDTHS[f"PARCEL {_n} WEIGHT (IN KG)"] = 17
+    WIDTHS[f"PARCEL {_n} DIMENSIONS (IN CM)"] = 18
 
 NOTES = {
     "REF": "Your own reference (optional) — echoed back in the results so you can match errors to rows.",
@@ -103,9 +111,6 @@ NOTES = {
     "PICK UP CONTACT EMAIL": "Contact email at pickup (optional)",
     "PICK UP ALTERNATE CONTACT PERSON": "Backup contact name at pickup (optional)",
     "PICK UP ALTERNATE CONTACT NO": "Backup contact phone at pickup (optional)",
-    "NO OF PIECES": "Whole number, at least 1",
-    "WEIGHT (IN KG)": "Number greater than 0",
-    "DIMENSIONS (IN CM)": "e.g. 30x20x15 (optional)",
     "DELIVERY ADDRESS": "Full delivery address",
     "DELIVERY PINCODE/ZIP CODE": "Delivery pincode / ZIP code",
     "DELIVERY CONTACT NO": "Contact phone at delivery",
@@ -119,6 +124,11 @@ NOTES = {
     "IS THIS A DG SHIPMENT?": "Dropdown: Yes / No (blank = No)",
     "ADDITIONAL INFORMATION": "Any extra notes (optional)",
 }
+for _n in range(1, 6):
+    _suffix = "" if _n == 1 else " — only if this parcel is used"
+    NOTES[f"PARCEL {_n} NO OF PIECES"] = "Whole number, at least 1" + _suffix
+    NOTES[f"PARCEL {_n} WEIGHT (IN KG)"] = "Number greater than 0" + _suffix
+    NOTES[f"PARCEL {_n} DIMENSIONS (IN CM)"] = "e.g. 30x20x15 (optional)"
 
 
 def build_shipments_sheet(ws):
@@ -153,7 +163,7 @@ def build_shipments_sheet(ws):
             dv.error = "Choose one of: " + ", ".join(values)
             dv.add(rng)
             ws.add_data_validation(dv)
-        elif header == "NO OF PIECES":
+        elif header.endswith("NO OF PIECES"):
             dv = DataValidation(type="whole", operator="greaterThanOrEqual",
                                 formula1="1", allow_blank=True)
             dv.errorStyle = "stop"
@@ -162,7 +172,7 @@ def build_shipments_sheet(ws):
             dv.error = "No. of pieces must be a whole number of at least 1."
             dv.add(rng)
             ws.add_data_validation(dv)
-        elif header == "WEIGHT (IN KG)":
+        elif header.endswith("WEIGHT (IN KG)"):
             dv = DataValidation(type="decimal", operator="greaterThan",
                                 formula1="0", allow_blank=True)
             dv.errorStyle = "stop"
@@ -222,6 +232,7 @@ def build_instructions_sheet(ws):
         "Up to 500 shipments per file.",
         "Required columns have a PURPLE header; optional columns have a GRAY header.",
         "Drop-down columns only accept the listed values (pick from the arrow).",
+        "A shipment can have up to 5 parcels: fill PARCEL 1, then add PARCEL 2–5 only if there are more boxes.",
         "Leave AWB, Client ID, Status, Billing, etc. out — they are assigned automatically by Fetcher / ops.",
         "REF is your own optional reference; we echo it back in the results so you can match any errors to your rows.",
     ]:
@@ -249,8 +260,10 @@ def build_instructions_sheet(ws):
     section("Example row")
     example = (
         "REF=ORD-1001 | SCOPE=Domestic | PICK UP ADDRESS=12 MG Road, Bengaluru 560001 | "
-        "PICK UP PINCODE/ZIP CODE=560001 | PICK UP CONTACT NO=9876543210 | NO OF PIECES=2 | "
-        "WEIGHT (IN KG)=5.5 | DELIVERY ADDRESS=4 Park Street, Kolkata 700016 | "
+        "PICK UP PINCODE/ZIP CODE=560001 | PICK UP CONTACT NO=9876543210 | "
+        "PARCEL 1 NO OF PIECES=2 | PARCEL 1 WEIGHT (IN KG)=5.5 | PARCEL 1 DIMENSIONS (IN CM)=30x20x15 | "
+        "PARCEL 2 NO OF PIECES=1 | PARCEL 2 WEIGHT (IN KG)=3 | "
+        "DELIVERY ADDRESS=4 Park Street, Kolkata 700016 | "
         "DELIVERY PINCODE/ZIP CODE=700016 | DELIVERY CONTACT NO=9123456780 | "
         "SHIPMENT TYPE=Commercial | MODE=Express | SHIPMENT CATAGORY=Non-Doc | IS THIS A DG SHIPMENT?=No"
     )
