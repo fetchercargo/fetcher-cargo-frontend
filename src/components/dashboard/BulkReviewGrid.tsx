@@ -1,16 +1,21 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { BrandDots } from '@/components/BrandLoader';
 import {
   COLUMNS,
+  MAX_PARCELS,
   computeRowErrors,
   dgFromRow,
+  emptyParcel,
+  parcelFieldKey,
+  parcelTotals,
   titleCase,
   type AllowedValues,
   type BulkValidateResponse,
   type ColumnDef,
   type DgValue,
+  type ParcelInput,
   type ShipmentInput,
   type ShipmentSummary,
 } from '@/lib/bulk';
@@ -27,10 +32,37 @@ interface GridRow {
   errors: { field: string; message: string }[];
 }
 
+// A render slot is either one of the flat COLUMNS or the dedicated parcels cell.
+// The parcels slot is inserted right after the pickup block.
+type Slot = { kind: 'col'; col: ColumnDef } | { kind: 'parcels' };
+
+const SLOTS: Slot[] = (() => {
+  const out: Slot[] = [];
+  for (const col of COLUMNS) {
+    out.push({ kind: 'col', col });
+    if (col.key === 'pickupAltContactNo') out.push({ kind: 'parcels' });
+  }
+  return out;
+})();
+
 function colWidth(col: ColumnDef): string {
   if (col.wide) return 'min-w-[240px]';
   if (col.kind === 'number') return 'min-w-[100px]';
   return 'min-w-[150px]';
+}
+
+// seedParcels returns the row's parcels, falling back to a single parcel derived
+// from the legacy flat totals if the server somehow sent none.
+function seedParcels(input: ShipmentInput): ParcelInput[] {
+  if (Array.isArray(input.parcels) && input.parcels.length > 0) {
+    return input.parcels.map((p) => ({ noOfPieces: Number(p.noOfPieces) || 0, weightKg: Number(p.weightKg) || 0, dimensions: p.dimensions ?? '' }));
+  }
+  return [{ noOfPieces: Number(input.noOfPieces) || 1, weightKg: Number(input.weightKg) || 0, dimensions: input.dimensions ?? '' }];
+}
+
+// withParcels sets the parcels and keeps the derived totals in sync.
+function withParcels(input: ShipmentInput, parcels: ParcelInput[]): ShipmentInput {
+  return { ...input, parcels, ...parcelTotals(parcels) };
 }
 
 export default function BulkReviewGrid({
@@ -53,11 +85,12 @@ export default function BulkReviewGrid({
   const [rows, setRows] = useState<GridRow[]>(() =>
     response.rows.map((rv) => {
       const dg = dgFromRow(rv);
+      const input = withParcels({ ...rv.input }, seedParcels(rv.input));
       return {
         rowNumber: rv.rowNumber,
-        input: { ...rv.input },
+        input,
         dg,
-        errors: computeRowErrors(rv.input, dg, allowed),
+        errors: computeRowErrors(input, dg, allowed),
       };
     }),
   );
@@ -66,6 +99,7 @@ export default function BulkReviewGrid({
   const [submitting, setSubmitting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [clientCode, setClientCode] = useState('');
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   // In admin mode, require the typed code to match a real client before create.
   const clientValid = !clients || clients.some((c) => c.clientCode === clientCode);
 
@@ -95,6 +129,25 @@ export default function BulkReviewGrid({
         return { ...r, dg, input, errors: computeRowErrors(input, dg, allowed) };
       }),
     );
+  }
+
+  function setParcels(rowNumber: number, parcels: ParcelInput[]) {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.rowNumber !== rowNumber) return r;
+        const input = withParcels(r.input, parcels);
+        return { ...r, input, errors: computeRowErrors(input, r.dg, allowed) };
+      }),
+    );
+  }
+
+  function toggleExpanded(rowNumber: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowNumber)) next.delete(rowNumber);
+      else next.add(rowNumber);
+      return next;
+    });
   }
 
   async function handleCreate() {
@@ -166,23 +219,6 @@ export default function BulkReviewGrid({
       );
     }
 
-    if (col.kind === 'number') {
-      return (
-        <input
-          type="number"
-          title={errMsg}
-          value={Number(row.input[col.key])}
-          min={col.key === 'noOfPieces' ? 1 : 0}
-          step={col.key === 'noOfPieces' ? 1 : 'any'}
-          onChange={(e) => {
-            const n = Number(e.target.value);
-            setField(row.rowNumber, col.key, e.target.value === '' || Number.isNaN(n) ? 0 : n);
-          }}
-          className={cls}
-        />
-      );
-    }
-
     return (
       <input
         type="text"
@@ -193,6 +229,45 @@ export default function BulkReviewGrid({
       />
     );
   }
+
+  // The parcels summary cell: count + totals + an expand toggle. Turns red when
+  // any parcel sub-field (or the count) is invalid.
+  function renderParcelsCell(row: GridRow) {
+    const parcels = row.input.parcels ?? [];
+    const totals = parcelTotals(parcels);
+    const hasError = row.errors.some((e) => e.field === 'parcels' || e.field.startsWith('parcel:'));
+    const open = expanded.has(row.rowNumber);
+    return (
+      <button
+        type="button"
+        onClick={() => toggleExpanded(row.rowNumber)}
+        title={hasError ? 'Some parcels need fixing' : 'Edit parcels'}
+        className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 text-sm rounded border transition-colors ${
+          hasError ? 'border-red-400 bg-red-50 text-red-900' : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+        }`}
+      >
+        <span className="truncate">
+          {parcels.length} parcel{parcels.length === 1 ? '' : 's'} · {totals.noOfPieces} pcs
+          {totals.weightKg ? ` · ${+totals.weightKg.toFixed(3)} kg` : ''}
+        </span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+    );
+  }
+
+  const colCount = SLOTS.length + 2; // # + REF + slots
 
   return (
     <div>
@@ -263,38 +338,39 @@ export default function BulkReviewGrid({
               <tr className="bg-gray-50 text-left text-gray-500">
                 <th className="sticky left-0 z-20 bg-gray-50 w-14 px-3 py-2 font-medium border-b border-gray-200">#</th>
                 <th className="sticky left-14 z-20 bg-gray-50 px-2 py-2 font-medium border-b border-r border-gray-200">REF</th>
-                {COLUMNS.map((col) => (
-                  <th key={col.key} className={`px-2 py-2 font-medium border-b border-gray-200 ${colWidth(col)}`}>
-                    {col.label}
-                    {col.required && <span className="text-red-500"> *</span>}
-                  </th>
-                ))}
+                {SLOTS.map((slot, i) =>
+                  slot.kind === 'parcels' ? (
+                    <th key={`parcels-${i}`} className="px-2 py-2 font-medium border-b border-gray-200 min-w-[200px]">
+                      Parcels<span className="text-red-500"> *</span>
+                    </th>
+                  ) : (
+                    <th key={slot.col.key} className={`px-2 py-2 font-medium border-b border-gray-200 ${colWidth(slot.col)}`}>
+                      {slot.col.label}
+                      {slot.col.required && <span className="text-red-500"> *</span>}
+                    </th>
+                  ),
+                )}
               </tr>
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length + 2} className="px-4 py-10 text-center text-gray-400 border-b border-gray-100">
+                  <td colSpan={colCount} className="px-4 py-10 text-center text-gray-400 border-b border-gray-100">
                     No rows with errors — everything looks good.
                   </td>
                 </tr>
               ) : (
                 pageRows.map((row) => (
-                  <tr key={row.rowNumber} className={row.errors.length > 0 ? 'bg-red-50/30' : ''}>
-                    <td className="sticky left-0 z-10 bg-white w-14 px-3 py-1.5 border-b border-gray-100 text-gray-400">{row.rowNumber}</td>
-                    <td className="sticky left-14 z-10 bg-white px-2 py-1.5 border-b border-r border-gray-100">
-                      <input
-                        value={String(row.input.customerRef ?? '')}
-                        onChange={(e) => setField(row.rowNumber, 'customerRef', e.target.value)}
-                        className="w-[110px] px-2 py-1.5 text-sm rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
-                      />
-                    </td>
-                    {COLUMNS.map((col) => (
-                      <td key={col.key} className={`px-2 py-1.5 border-b border-gray-100 align-top ${colWidth(col)}`}>
-                        {renderCell(row, col)}
-                      </td>
-                    ))}
-                  </tr>
+                  <ReviewRow
+                    key={row.rowNumber}
+                    row={row}
+                    open={expanded.has(row.rowNumber)}
+                    colCount={colCount}
+                    onRefChange={(v) => setField(row.rowNumber, 'customerRef', v)}
+                    onParcelsChange={(p) => setParcels(row.rowNumber, p)}
+                    renderCell={renderCell}
+                    renderParcelsCell={renderParcelsCell}
+                  />
                 ))
               )}
             </tbody>
@@ -331,6 +407,177 @@ export default function BulkReviewGrid({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ReviewRow renders one shipment row plus, when expanded, the per-parcel editor
+// in a full-width sub-row beneath it.
+function ReviewRow({
+  row,
+  open,
+  colCount,
+  onRefChange,
+  onParcelsChange,
+  renderCell,
+  renderParcelsCell,
+}: {
+  row: GridRow;
+  open: boolean;
+  colCount: number;
+  onRefChange: (v: string) => void;
+  onParcelsChange: (parcels: ParcelInput[]) => void;
+  renderCell: (row: GridRow, col: ColumnDef) => ReactNode;
+  renderParcelsCell: (row: GridRow) => ReactNode;
+}) {
+  const rowBg = row.errors.length > 0 ? 'bg-red-50/30' : '';
+  return (
+    <>
+      <tr className={rowBg}>
+        <td className="sticky left-0 z-10 bg-white w-14 px-3 py-1.5 border-b border-gray-100 text-gray-400">{row.rowNumber}</td>
+        <td className="sticky left-14 z-10 bg-white px-2 py-1.5 border-b border-r border-gray-100">
+          <input
+            value={String(row.input.customerRef ?? '')}
+            onChange={(e) => onRefChange(e.target.value)}
+            className="w-[110px] px-2 py-1.5 text-sm rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+          />
+        </td>
+        {SLOTS.map((slot, i) =>
+          slot.kind === 'parcels' ? (
+            <td key={`parcels-${i}`} className="px-2 py-1.5 border-b border-gray-100 align-top min-w-[200px]">
+              {renderParcelsCell(row)}
+            </td>
+          ) : (
+            <td key={slot.col.key} className={`px-2 py-1.5 border-b border-gray-100 align-top ${colWidth(slot.col)}`}>
+              {renderCell(row, slot.col)}
+            </td>
+          ),
+        )}
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={colCount} className="bg-gray-50/60 border-b border-gray-100 px-4 py-3">
+            <ParcelEditor parcels={row.input.parcels ?? []} errors={row.errors} rowNumber={row.rowNumber} onChange={onParcelsChange} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// ParcelEditor is the inline per-parcel editor: a compact list of 1..MAX_PARCELS
+// parcels, each with pieces/weight/dimensions, plus add/remove. Invalid pieces/
+// weight cells are highlighted using the row's per-parcel error keys.
+function ParcelEditor({
+  parcels,
+  errors,
+  rowNumber,
+  onChange,
+}: {
+  parcels: ParcelInput[];
+  errors: { field: string; message: string }[];
+  rowNumber: number;
+  onChange: (parcels: ParcelInput[]) => void;
+}) {
+  const errOf = (i: number, sub: 'noOfPieces' | 'weightKg') => errors.find((e) => e.field === parcelFieldKey(i, sub))?.message;
+
+  function update(i: number, key: keyof ParcelInput, value: string) {
+    const next = parcels.map((p, idx) => {
+      if (idx !== i) return p;
+      if (key === 'dimensions') return { ...p, dimensions: value };
+      const n = Number(value);
+      return { ...p, [key]: value === '' || Number.isNaN(n) ? 0 : n };
+    });
+    onChange(next);
+  }
+  function add() {
+    if (parcels.length < MAX_PARCELS) onChange([...parcels, emptyParcel()]);
+  }
+  function remove(i: number) {
+    if (parcels.length > 1) onChange(parcels.filter((_, idx) => idx !== i));
+  }
+
+  const totals = parcelTotals(parcels);
+  const cell = (invalid: boolean) =>
+    `w-full px-2 py-1.5 text-sm rounded border focus:outline-none focus:ring-2 focus:ring-brand-orange/40 ${
+      invalid ? 'border-red-400 bg-red-50 text-red-900' : 'border-gray-200'
+    }`;
+
+  return (
+    <div className="max-w-3xl">
+      <div className="text-xs font-semibold text-brand-gray mb-2">
+        Parcels for row {rowNumber} — pieces &amp; weight are required per parcel.
+      </div>
+      <div className="space-y-2">
+        {parcels.map((p, i) => {
+          const piecesErr = errOf(i, 'noOfPieces');
+          const weightErr = errOf(i, 'weightKg');
+          return (
+            <div key={i} className="flex items-end gap-2">
+              <span className="text-xs font-semibold text-gray-400 w-14 pb-2 flex-shrink-0">P{i + 1}</span>
+              <label className="flex flex-col gap-1 w-24">
+                <span className="text-[11px] text-gray-500">Pieces *</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  title={piecesErr}
+                  value={Number(p.noOfPieces)}
+                  onChange={(e) => update(i, 'noOfPieces', e.target.value)}
+                  className={cell(!!piecesErr)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 w-28">
+                <span className="text-[11px] text-gray-500">Weight (kg) *</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  title={weightErr}
+                  value={Number(p.weightKg)}
+                  onChange={(e) => update(i, 'weightKg', e.target.value)}
+                  className={cell(!!weightErr)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 flex-1 min-w-[140px]">
+                <span className="text-[11px] text-gray-500">Dimensions (cm)</span>
+                <input
+                  type="text"
+                  placeholder="30x20x15"
+                  value={p.dimensions ?? ''}
+                  onChange={(e) => update(i, 'dimensions', e.target.value)}
+                  className={cell(false)}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                disabled={parcels.length <= 1}
+                title={parcels.length <= 1 ? 'A shipment needs at least one parcel' : 'Remove parcel'}
+                className="mb-1.5 p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+                aria-label="Remove parcel"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                </svg>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <button
+          type="button"
+          onClick={add}
+          disabled={parcels.length >= MAX_PARCELS}
+          className="text-sm font-semibold text-brand-orange hover:text-brand-coral disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          + Add parcel{parcels.length >= MAX_PARCELS ? ` (max ${MAX_PARCELS})` : ''}
+        </button>
+        <span className="text-xs text-gray-500">
+          Total: {totals.noOfPieces} pcs{totals.weightKg ? ` · ${+totals.weightKg.toFixed(3)} kg` : ''}
+        </span>
+      </div>
     </div>
   );
 }

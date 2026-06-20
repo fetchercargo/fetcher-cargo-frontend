@@ -5,6 +5,16 @@
 // can give instant feedback; the server re-validates on create, so any drift
 // can only ever over-report on the client — never let an invalid row through.
 
+// MAX_PARCELS mirrors the backend model.MaxParcels — the hard cap per shipment.
+export const MAX_PARCELS = 5;
+
+// ParcelInput is one parcel in a booking payload (mirrors Go model.ParcelInput).
+export interface ParcelInput {
+  noOfPieces: number;
+  weightKg: number;
+  dimensions: string;
+}
+
 export interface ShipmentInput {
   scope: string;
   pickupAddress: string;
@@ -14,9 +24,13 @@ export interface ShipmentInput {
   pickupContactEmail: string;
   pickupAltContactPerson: string;
   pickupAltContactNo: string;
+  // noOfPieces/weightKg/dimensions are shipment-level TOTALS, derived from parcels
+  // by the server (and kept in sync client-side for display). Parcels is the
+  // per-parcel breakdown (1..MAX_PARCELS) and is the source of truth on create.
   noOfPieces: number;
   weightKg: number;
   dimensions: string;
+  parcels: ParcelInput[];
   deliveryAddress: string;
   deliveryPincode: string;
   deliveryContactPerson: string;
@@ -112,9 +126,8 @@ export const COLUMNS: ColumnDef[] = [
   { key: 'pickupContactEmail', label: 'Pickup Contact Email', kind: 'text', required: false },
   { key: 'pickupAltContactPerson', label: 'Pickup Alternate Contact Person', kind: 'text', required: false },
   { key: 'pickupAltContactNo', label: 'Pickup Alternate Contact No', kind: 'text', required: false },
-  { key: 'noOfPieces', label: 'No. of Pieces', kind: 'number', required: true },
-  { key: 'weightKg', label: 'Weight (kg)', kind: 'number', required: true },
-  { key: 'dimensions', label: 'Dimensions (cm)', kind: 'text', required: false },
+  // Parcels (pieces/weight/dimensions per parcel) are edited in a dedicated
+  // expandable editor rendered by the grid, not as flat COLUMNS cells.
   { key: 'deliveryAddress', label: 'Delivery Address', kind: 'text', required: true, wide: true },
   { key: 'deliveryPincode', label: 'Delivery Pincode/ZIP', kind: 'text', required: true },
   { key: 'deliveryContactNo', label: 'Delivery Contact No', kind: 'text', required: true },
@@ -164,10 +177,50 @@ export function validateRow(input: ShipmentInput, allowed: AllowedValues): Field
   if (!inSet(input.mode, allowed.modes)) errs.push({ field: 'mode', message: 'Please select a valid mode' });
   if (!inSet(input.shipmentCategory, allowed.categories)) errs.push({ field: 'shipmentCategory', message: 'Please select a valid shipment category' });
 
-  if (!(Number(input.noOfPieces) >= 1)) errs.push({ field: 'noOfPieces', message: 'Number of pieces must be at least 1' });
-  if (!(Number(input.weightKg) > 0)) errs.push({ field: 'weightKg', message: 'Weight (kg) must be greater than 0' });
+  errs.push(...validateParcels(input.parcels ?? []));
 
   return errs;
+}
+
+// parcelFieldKey builds the stable error key for one parcel sub-field, so the
+// grid's parcels editor can highlight the exact invalid cell.
+export function parcelFieldKey(index: number, sub: 'noOfPieces' | 'weightKg'): string {
+  return `parcel:${index}:${sub}`;
+}
+
+// validateParcels mirrors the backend rule set: 1..MAX_PARCELS parcels, each with
+// pieces >= 1 and weight > 0. Count problems use the 'parcels' field; per-parcel
+// problems use parcelFieldKey so the editor can mark the precise input.
+export function validateParcels(parcels: ParcelInput[]): FieldError[] {
+  const errs: FieldError[] = [];
+  if (parcels.length < 1) {
+    errs.push({ field: 'parcels', message: 'At least one parcel is required' });
+    return errs;
+  }
+  if (parcels.length > MAX_PARCELS) {
+    errs.push({ field: 'parcels', message: `At most ${MAX_PARCELS} parcels are allowed` });
+  }
+  parcels.forEach((p, i) => {
+    if (!(Number(p.noOfPieces) >= 1)) errs.push({ field: parcelFieldKey(i, 'noOfPieces'), message: `Parcel ${i + 1}: number of pieces must be at least 1` });
+    if (!(Number(p.weightKg) > 0)) errs.push({ field: parcelFieldKey(i, 'weightKg'), message: `Parcel ${i + 1}: weight (kg) must be greater than 0` });
+  });
+  return errs;
+}
+
+// parcelTotals derives the shipment-level summary the same way the server does
+// (sum of pieces, sum of weight, joined non-empty dimensions). Kept in sync so
+// the grid summary and the (server-recomputed) totals never disagree.
+export function parcelTotals(parcels: ParcelInput[]): { noOfPieces: number; weightKg: number; dimensions: string } {
+  const noOfPieces = parcels.reduce((s, p) => s + (Number(p.noOfPieces) || 0), 0);
+  const weightKg = parcels.reduce((s, p) => s + (Number(p.weightKg) || 0), 0);
+  const dimensions = parcels.map((p) => (p.dimensions ?? '').trim()).filter(Boolean).join('; ');
+  return { noOfPieces, weightKg, dimensions };
+}
+
+// emptyParcel is a freshly-added parcel: 1 piece, weight unset (0 -> flagged
+// until filled), no dimensions.
+export function emptyParcel(): ParcelInput {
+  return { noOfPieces: 1, weightKg: 0, dimensions: '' };
 }
 
 // computeRowErrors is the full per-row check used by the grid: all field rules
