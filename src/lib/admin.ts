@@ -138,6 +138,7 @@ export interface DriveFile {
   mimeType: string;
   size: number;
   modifiedTime: string;
+  isFolder?: boolean;
 }
 
 export function emptyLocation(): ClientLocationInput {

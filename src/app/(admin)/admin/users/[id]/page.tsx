@@ -200,7 +200,7 @@ export default function AdminViewUserPage() {
           </div>
           {u.clientCode && (
             <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <DocumentManager category="documents" title="Documents" clientCode={u.clientCode} />
+              <DocumentManager category="documents" title="Documents" clientCode={u.clientCode} nested />
               <DocumentManager category="billing" title="Billing" clientCode={u.clientCode} />
             </div>
           )}
