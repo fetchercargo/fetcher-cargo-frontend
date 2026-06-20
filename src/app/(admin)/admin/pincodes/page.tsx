@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import BrandLoader, { BrandDots } from '@/components/BrandLoader';
 import { placeLabel, type ServiceablePincode, type Segment } from '@/lib/pincode';
 
@@ -37,9 +37,7 @@ export default function AdminPincodesPage() {
   const [items, setItems] = useState<ServiceablePincode[] | null>(null);
   const [total, setTotal] = useState(0);
   const [editing, setEditing] = useState<{ record: ServiceablePincode; isNew: boolean } | null>(null);
-  const [importing, setImporting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -81,31 +79,6 @@ export default function AdminPincodesPage() {
     }
   }
 
-  async function importFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImporting(true);
-    setBanner(null);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/admin/pincodes/import', { method: 'POST', body: fd });
-      const d = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setBanner(`Imported ${d.imported ?? 0} pincodes${d.skipped ? `, skipped ${d.skipped}` : ''}.`);
-        setPage(0);
-        reload();
-      } else {
-        setBanner(d.error || 'Import failed.');
-      }
-    } catch {
-      setBanner('Import failed.');
-    } finally {
-      setImporting(false);
-      if (fileInput.current) fileInput.current.value = '';
-    }
-  }
-
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -113,24 +86,13 @@ export default function AdminPincodesPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Pincode serviceability</h1>
           <p className="text-gray-500 mt-1">{total.toLocaleString()} pincode{total === 1 ? '' : 's'} across B2B &amp; B2C.</p>
         </div>
-        <div className="flex items-center gap-2.5">
-          <input ref={fileInput} type="file" accept=".xlsx" className="hidden" onChange={importFile} />
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            disabled={importing}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-brand-orange border border-brand-orange rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
-          >
-            {importing ? <BrandDots /> : 'Import Excel'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing({ record: emptyRecord(), isNew: true })}
-            className="px-4 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors"
-          >
-            + Add pincode
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setEditing({ record: emptyRecord(), isNew: true })}
+          className="px-4 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors"
+        >
+          + Add pincode
+        </button>
       </div>
 
       {banner && <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">{banner}</div>}
