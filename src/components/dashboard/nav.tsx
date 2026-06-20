@@ -114,5 +114,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Calculator', icon: CalculatorIcon, href: '/dashboard/calculator' },
   { label: 'Billing', icon: BillingIcon, href: '/dashboard/billing' },
   { label: 'Pincode Serviceability', icon: PincodeIcon, href: '/dashboard/pincode-serviceability' },
-  { label: 'Support', icon: SupportIcon, soon: true },
+  { label: 'Support', icon: SupportIcon, href: '/dashboard/support' },
 ];
