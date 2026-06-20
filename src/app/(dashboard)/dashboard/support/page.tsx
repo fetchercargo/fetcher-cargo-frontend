@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-// The web ticket form the team uses. Replace with the real URL.
-const TICKET_FORM_URL = '#';
+// The web ticket form the team uses.
+const TICKET_FORM_URL = 'https://forms.gle/8VSwHerS5ceyL6XZA';
 
 const PHONE_DISPLAY = '+91 72047 53 639';
 const PHONE_TEL = '+917204753639';
