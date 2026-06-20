@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BrandDots } from '@/components/BrandLoader';
+import { isOda, type PincodeLookup } from '@/lib/pincode';
 import {
   COLUMNS,
   MAX_PARCELS,
@@ -105,6 +106,55 @@ export default function BulkReviewGrid({
 
   const totalErrors = useMemo(() => rows.reduce((n, r) => n + r.errors.length, 0), [rows]);
   const rowsWithErrors = useMemo(() => rows.filter((r) => r.errors.length > 0).length, [rows]);
+
+  // Soft, non-blocking serviceability hints: batch-check every distinct domestic
+  // pincode in the grid and flag cells that aren't covered (or are ODA).
+  const [serviceability, setServiceability] = useState<Record<string, PincodeLookup>>({});
+  const domesticPincodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      if ((r.input.scope || '').trim().toUpperCase() !== 'DOMESTIC') continue;
+      for (const v of [r.input.pickupPincode, r.input.deliveryPincode]) {
+        const p = String(v ?? '').trim();
+        if (p.length >= 6) set.add(p);
+      }
+    }
+    return Array.from(set).sort();
+  }, [rows]);
+
+  useEffect(() => {
+    if (domesticPincodes.length === 0) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch('/api/serviceability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pincodes: domesticPincodes }),
+      })
+        .then((r) => (r.ok ? r.json() : {}))
+        .then((d) => {
+          if (!cancelled) setServiceability((d ?? {}) as Record<string, PincodeLookup>);
+        })
+        .catch(() => {});
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [domesticPincodes]);
+
+  function pincodeWarning(row: GridRow, key: 'pickupPincode' | 'deliveryPincode'): string | null {
+    if ((row.input.scope || '').trim().toUpperCase() !== 'DOMESTIC') return null;
+    const p = String(row.input[key] ?? '').trim();
+    if (p.length < 6) return null;
+    const lk = serviceability[p];
+    if (!lk) return null;
+    const leg = key === 'pickupPincode' ? 'pickup' : 'delivery';
+    const covered = leg === 'pickup' ? lk.anyPickup : lk.anyDeliver;
+    const oda = (lk.results ?? []).some((r) => isOda(r.odaCategory));
+    if (covered && !oda) return null;
+    return covered ? 'Serviceable but ODA — may add time/charges' : `Not serviceable for ${leg}`;
+  }
 
   const visible = errorsOnly ? rows.filter((r) => r.errors.length > 0) : rows;
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
@@ -219,14 +269,23 @@ export default function BulkReviewGrid({
       );
     }
 
+    const warn = col.key === 'pickupPincode' || col.key === 'deliveryPincode' ? pincodeWarning(row, col.key) : null;
     return (
-      <input
-        type="text"
-        title={errMsg}
-        value={String(row.input[col.key] ?? '')}
-        onChange={(e) => setField(row.rowNumber, col.key, e.target.value)}
-        className={cls}
-      />
+      <div>
+        <input
+          type="text"
+          title={errMsg}
+          value={String(row.input[col.key] ?? '')}
+          onChange={(e) => setField(row.rowNumber, col.key, e.target.value)}
+          className={cls}
+        />
+        {warn && (
+          <p className="flex items-center gap-1 text-[11px] text-amber-700 mt-1" title={warn}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><path d="M12 9v4M12 17h.01" /></svg>
+            <span className="truncate">{warn}</span>
+          </p>
+        )}
+      </div>
     );
   }
 

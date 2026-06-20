@@ -43,6 +43,12 @@ const UsersIcon: FC = () => (
     <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
   </Icon>
 );
+const PincodeIcon: FC = () => (
+  <Icon>
+    <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" />
+    <path d="M9 4v14M15 6v14" />
+  </Icon>
+);
 
 interface AdminNavItem {
   label: string;
@@ -56,6 +62,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { label: 'Shipments', href: '/admin/shipments', icon: ShipmentsIcon, match: (p) => p.startsWith('/admin/shipments') && p !== '/admin/shipments/new' },
   { label: 'Create Shipment', href: '/admin/shipments/new', icon: CreateIcon, match: (p) => p === '/admin/shipments/new' },
   { label: 'Users', href: '/admin/users', icon: UsersIcon, match: (p) => p.startsWith('/admin/users') },
+  { label: 'Pincodes', href: '/admin/pincodes', icon: PincodeIcon, match: (p) => p.startsWith('/admin/pincodes') },
 ];
 
 function MenuIcon() {

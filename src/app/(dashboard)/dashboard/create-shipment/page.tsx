@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BrandDots } from '@/components/BrandLoader';
 import ParcelRows, { emptyParcel, type ParcelFormState } from '@/components/admin/ParcelRows';
+import PincodeNote from '@/components/PincodeNote';
 import type { ClientLocation } from '@/lib/admin';
 
 const SCOPES = ['DOMESTIC', 'INTERNATIONAL'];
@@ -306,6 +307,7 @@ export default function CreateShipmentPage() {
           <div className="flex flex-col gap-1.5">
             <label className={labelCls} htmlFor="pickupPincode">Pincode / ZIP <span className="text-red-500">*</span></label>
             <input id="pickupPincode" required className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} />
+            <PincodeNote pincode={form.pickupPincode} leg="pickup" scope={form.scope} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className={labelCls} htmlFor="pickupContactNo">Contact number <span className="text-red-500">*</span></label>
@@ -339,6 +341,7 @@ export default function CreateShipmentPage() {
           <div className="flex flex-col gap-1.5">
             <label className={labelCls} htmlFor="deliveryPincode">Pincode / ZIP <span className="text-red-500">*</span></label>
             <input id="deliveryPincode" required className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} />
+            <PincodeNote pincode={form.deliveryPincode} leg="delivery" scope={form.scope} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className={labelCls} htmlFor="deliveryContactNo">Contact number <span className="text-red-500">*</span></label>

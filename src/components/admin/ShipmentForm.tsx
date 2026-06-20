@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { SCOPES, TYPES, MODES, CATEGORIES, STATUSES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
 import { BrandDots } from '@/components/BrandLoader';
 import ParcelRows, { emptyParcel, type ParcelFormState } from '@/components/admin/ParcelRows';
+import PincodeNote from '@/components/PincodeNote';
 
 export interface ShipmentFormState {
   clientCode: string;
@@ -251,6 +252,7 @@ export default function ShipmentForm({
         </Field>
         <Field label="Pincode / ZIP" required>
           <input className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} />
+          <PincodeNote pincode={form.pickupPincode} leg="pickup" scope={form.scope} />
         </Field>
         <Field label="Contact number" required>
           <input className={inputCls} value={form.pickupContactNo} onChange={(e) => set('pickupContactNo', e.target.value)} />
@@ -280,6 +282,7 @@ export default function ShipmentForm({
         </Field>
         <Field label="Pincode / ZIP" required>
           <input className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} />
+          <PincodeNote pincode={form.deliveryPincode} leg="delivery" scope={form.scope} />
         </Field>
         <Field label="Contact number" required>
           <input className={inputCls} value={form.deliveryContactNo} onChange={(e) => set('deliveryContactNo', e.target.value)} />
