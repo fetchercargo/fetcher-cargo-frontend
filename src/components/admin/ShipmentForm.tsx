@@ -5,11 +5,15 @@ import { SCOPES, TYPES, MODES, CATEGORIES, STATUSES, titleCase, type ClientLocat
 import { BrandDots } from '@/components/BrandLoader';
 import ParcelRows, { emptyParcel, type ParcelFormState } from '@/components/admin/ParcelRows';
 import PincodeNote from '@/components/PincodeNote';
+import StateSelect from '@/components/StateSelect';
+import { fetchPincodeAutofill } from '@/lib/pincode';
 
 export interface ShipmentFormState {
   clientCode: string;
   scope: string;
   pickupAddress: string;
+  pickupCity: string;
+  pickupState: string;
   pickupPincode: string;
   pickupContactPerson: string;
   pickupContactNo: string;
@@ -18,6 +22,8 @@ export interface ShipmentFormState {
   pickupAltContactNo: string;
   parcels: ParcelFormState[];
   deliveryAddress: string;
+  deliveryCity: string;
+  deliveryState: string;
   deliveryPincode: string;
   deliveryContactPerson: string;
   deliveryContactNo: string;
@@ -41,10 +47,10 @@ export interface ShipmentFormState {
 }
 
 const DEFAULTS: ShipmentFormState = {
-  clientCode: '', scope: 'DOMESTIC', pickupAddress: '', pickupPincode: '', pickupContactPerson: '',
+  clientCode: '', scope: 'DOMESTIC', pickupAddress: '', pickupCity: '', pickupState: '', pickupPincode: '', pickupContactPerson: '',
   pickupContactNo: '', pickupContactEmail: '', pickupAltContactPerson: '', pickupAltContactNo: '',
   parcels: [emptyParcel()],
-  deliveryAddress: '', deliveryPincode: '', deliveryContactPerson: '', deliveryContactNo: '', deliveryContactEmail: '',
+  deliveryAddress: '', deliveryCity: '', deliveryState: '', deliveryPincode: '', deliveryContactPerson: '', deliveryContactNo: '', deliveryContactEmail: '',
   deliveryAltContactPerson: '', deliveryAltContactNo: '',
   shipmentType: 'COMMERCIAL', mode: 'SURFACE', shipmentCategory: 'NON-DOC', isDg: false, additionalInfo: '', customerRef: '',
   awb: '', status: 'SHIPMENT CREATED', batchNo: '', chargeableWeight: '', estimatedDeliveryDate: '', billingAmount: '', remarks: '',
@@ -145,10 +151,21 @@ export default function ShipmentForm({
   }, [mode, form.clientCode]);
 
   function fillPickup(l: ClientLocation) {
-    setForm((f) => ({ ...f, pickupAddress: l.address, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email, pickupAltContactPerson: l.altContactPerson, pickupAltContactNo: l.altContactNo }));
+    setForm((f) => ({ ...f, pickupAddress: l.address, pickupCity: l.city, pickupState: l.state, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email, pickupAltContactPerson: l.altContactPerson, pickupAltContactNo: l.altContactNo }));
   }
   function fillDelivery(l: ClientLocation) {
-    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email, deliveryAltContactPerson: l.altContactPerson, deliveryAltContactNo: l.altContactNo }));
+    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryCity: l.city, deliveryState: l.state, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email, deliveryAltContactPerson: l.altContactPerson, deliveryAltContactNo: l.altContactNo }));
+  }
+
+  async function autofill(which: 'pickup' | 'delivery', pincode: string) {
+    if (form.scope.trim().toUpperCase() !== 'DOMESTIC') return;
+    const sug = await fetchPincodeAutofill(pincode);
+    if (!sug) return;
+    setForm((f) =>
+      which === 'pickup'
+        ? { ...f, pickupCity: f.pickupCity || sug.city, pickupState: f.pickupState || sug.state }
+        : { ...f, deliveryCity: f.deliveryCity || sug.city, deliveryState: f.deliveryState || sug.state },
+    );
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -156,6 +173,8 @@ export default function ShipmentForm({
     const base = {
       scope: form.scope,
       pickupAddress: form.pickupAddress,
+      pickupCity: form.pickupCity,
+      pickupState: form.pickupState,
       pickupPincode: form.pickupPincode,
       pickupContactPerson: form.pickupContactPerson,
       pickupContactNo: form.pickupContactNo,
@@ -168,6 +187,8 @@ export default function ShipmentForm({
         dimensions: p.dimensions,
       })),
       deliveryAddress: form.deliveryAddress,
+      deliveryCity: form.deliveryCity,
+      deliveryState: form.deliveryState,
       deliveryPincode: form.deliveryPincode,
       deliveryContactPerson: form.deliveryContactPerson,
       deliveryContactNo: form.deliveryContactNo,
@@ -250,8 +271,14 @@ export default function ShipmentForm({
         <Field label="Pickup address" required full>
           <textarea rows={2} className={inputCls} value={form.pickupAddress} onChange={(e) => set('pickupAddress', e.target.value)} />
         </Field>
+        <Field label="City" required>
+          <input className={inputCls} value={form.pickupCity} onChange={(e) => set('pickupCity', e.target.value)} />
+        </Field>
+        <Field label="State" required>
+          <StateSelect className={inputCls} value={form.pickupState} onChange={(v) => set('pickupState', v)} />
+        </Field>
         <Field label="Pincode / ZIP" required>
-          <input className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} />
+          <input className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} onBlur={() => autofill('pickup', form.pickupPincode)} />
           <PincodeNote pincode={form.pickupPincode} leg="pickup" scope={form.scope} />
         </Field>
         <Field label="Contact number" required>
@@ -280,8 +307,14 @@ export default function ShipmentForm({
         <Field label="Delivery address" required full>
           <textarea rows={2} className={inputCls} value={form.deliveryAddress} onChange={(e) => set('deliveryAddress', e.target.value)} />
         </Field>
+        <Field label="City" required>
+          <input className={inputCls} value={form.deliveryCity} onChange={(e) => set('deliveryCity', e.target.value)} />
+        </Field>
+        <Field label="State" required>
+          <StateSelect className={inputCls} value={form.deliveryState} onChange={(v) => set('deliveryState', v)} />
+        </Field>
         <Field label="Pincode / ZIP" required>
-          <input className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} />
+          <input className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} onBlur={() => autofill('delivery', form.deliveryPincode)} />
           <PincodeNote pincode={form.deliveryPincode} leg="delivery" scope={form.scope} />
         </Field>
         <Field label="Contact number" required>

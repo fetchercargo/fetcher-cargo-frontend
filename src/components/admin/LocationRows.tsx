@@ -1,6 +1,7 @@
 'use client';
 
 import { emptyLocation, type ClientLocationInput } from '@/lib/admin';
+import StateSelect from '@/components/StateSelect';
 
 const inputCls =
   'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent';
@@ -48,6 +49,8 @@ export default function LocationRows({
             <input className={inputCls} placeholder="Label, e.g. Main Warehouse *" value={r.label} onChange={(e) => update(i, 'label', e.target.value)} />
             <input className={inputCls} placeholder="Pincode / ZIP" value={r.pincode} onChange={(e) => update(i, 'pincode', e.target.value)} />
             <textarea className={`${inputCls} sm:col-span-2`} rows={2} placeholder="Address *" value={r.address} onChange={(e) => update(i, 'address', e.target.value)} />
+            <input className={inputCls} placeholder="City" value={r.city} onChange={(e) => update(i, 'city', e.target.value)} />
+            <StateSelect className={inputCls} value={r.state} onChange={(v) => update(i, 'state', v)} />
             <input className={inputCls} placeholder="Contact person" value={r.contactPerson} onChange={(e) => update(i, 'contactPerson', e.target.value)} />
             <input className={inputCls} placeholder="Contact no" value={r.contactNo} onChange={(e) => update(i, 'contactNo', e.target.value)} />
             <input className={`${inputCls} sm:col-span-2`} placeholder="Email" value={r.email} onChange={(e) => update(i, 'email', e.target.value)} />

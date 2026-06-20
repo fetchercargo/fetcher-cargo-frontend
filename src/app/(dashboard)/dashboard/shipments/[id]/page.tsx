@@ -25,6 +25,8 @@ interface ShipmentDetail {
   isDg: boolean;
   batchNo: string | null;
   pickupAddress: string | null;
+  pickupCity: string | null;
+  pickupState: string | null;
   pickupPincode: string | null;
   pickupContactPerson: string | null;
   pickupContactNo: string | null;
@@ -37,6 +39,8 @@ interface ShipmentDetail {
   chargeableWeight: number | null;
   parcels: { noOfPieces: number | null; weightKg: number | null; dimensions: string | null }[] | null;
   deliveryAddress: string | null;
+  deliveryCity: string | null;
+  deliveryState: string | null;
   deliveryPincode: string | null;
   deliveryContactPerson: string | null;
   deliveryContactNo: string | null;
@@ -200,6 +204,8 @@ export default function ShipmentDetailPage() {
             <div className="sm:col-span-2">
               <Row label="Address" value={data.pickupAddress} />
             </div>
+            <Row label="City" value={data.pickupCity} />
+            <Row label="State" value={data.pickupState} />
             <Row label="Pincode / ZIP" value={data.pickupPincode} />
             <Row label="Contact No." value={data.pickupContactNo} />
             <Row label="Contact Person" value={data.pickupContactPerson} />
@@ -212,6 +218,8 @@ export default function ShipmentDetailPage() {
             <div className="sm:col-span-2">
               <Row label="Address" value={data.deliveryAddress} />
             </div>
+            <Row label="City" value={data.deliveryCity} />
+            <Row label="State" value={data.deliveryState} />
             <Row label="Pincode / ZIP" value={data.deliveryPincode} />
             <Row label="Contact No." value={data.deliveryContactNo} />
             <Row label="Contact Person" value={data.deliveryContactPerson} />

@@ -11,6 +11,8 @@ function toInput(l: ClientLocation) {
   return {
     label: l.label,
     address: l.address,
+    city: l.city,
+    state: l.state,
     pincode: l.pincode,
     contactNo: l.contactNo,
     email: l.email,

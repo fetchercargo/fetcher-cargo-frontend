@@ -13,13 +13,13 @@ function detailToForm(d: ShipmentDetail): Partial<ShipmentFormState> {
   const s = (v: string | null) => v ?? '';
   const n = (v: number | null) => (v == null ? '' : String(v));
   return {
-    scope: s(d.scope), pickupAddress: s(d.pickupAddress), pickupPincode: s(d.pickupPincode),
+    scope: s(d.scope), pickupAddress: s(d.pickupAddress), pickupCity: s(d.pickupCity), pickupState: s(d.pickupState), pickupPincode: s(d.pickupPincode),
     pickupContactPerson: s(d.pickupContactPerson), pickupContactNo: s(d.pickupContactNo), pickupContactEmail: s(d.pickupContactEmail),
     pickupAltContactPerson: s(d.pickupAltContactPerson), pickupAltContactNo: s(d.pickupAltContactNo),
     parcels: d.parcels && d.parcels.length
       ? d.parcels.map((p) => ({ noOfPieces: n(p.noOfPieces), weightKg: n(p.weightKg), dimensions: s(p.dimensions) }))
       : [emptyParcel()],
-    deliveryAddress: s(d.deliveryAddress), deliveryPincode: s(d.deliveryPincode),
+    deliveryAddress: s(d.deliveryAddress), deliveryCity: s(d.deliveryCity), deliveryState: s(d.deliveryState), deliveryPincode: s(d.deliveryPincode),
     deliveryContactPerson: s(d.deliveryContactPerson), deliveryContactNo: s(d.deliveryContactNo), deliveryContactEmail: s(d.deliveryContactEmail),
     deliveryAltContactPerson: s(d.deliveryAltContactPerson), deliveryAltContactNo: s(d.deliveryAltContactNo),
     shipmentType: s(d.shipmentType), mode: s(d.mode), shipmentCategory: s(d.shipmentCategory),

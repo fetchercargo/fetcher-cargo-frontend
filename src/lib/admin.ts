@@ -58,6 +58,8 @@ export interface ShipmentDetail {
   isDg: boolean;
   batchNo: string | null;
   pickupAddress: string | null;
+  pickupCity: string | null;
+  pickupState: string | null;
   pickupPincode: string | null;
   pickupContactPerson: string | null;
   pickupContactNo: string | null;
@@ -70,6 +72,8 @@ export interface ShipmentDetail {
   chargeableWeight: number | null;
   parcels: Parcel[];
   deliveryAddress: string | null;
+  deliveryCity: string | null;
+  deliveryState: string | null;
   deliveryPincode: string | null;
   deliveryContactPerson: string | null;
   deliveryContactNo: string | null;
@@ -105,6 +109,8 @@ export interface ClientLocation {
   kind: 'pickup' | 'delivery';
   label: string;
   address: string;
+  city: string;
+  state: string;
   pincode: string;
   contactNo: string;
   email: string;
@@ -118,6 +124,8 @@ export interface ClientLocation {
 export interface ClientLocationInput {
   label: string;
   address: string;
+  city: string;
+  state: string;
   pincode: string;
   contactNo: string;
   email: string;
@@ -145,6 +153,8 @@ export function emptyLocation(): ClientLocationInput {
   return {
     label: '',
     address: '',
+    city: '',
+    state: '',
     pincode: '',
     contactNo: '',
     email: '',

@@ -5,6 +5,8 @@
 // can give instant feedback; the server re-validates on create, so any drift
 // can only ever over-report on the client — never let an invalid row through.
 
+import { isValidIndianState } from './states';
+
 // MAX_PARCELS mirrors the backend model.MaxParcels — the hard cap per shipment.
 export const MAX_PARCELS = 5;
 
@@ -18,6 +20,8 @@ export interface ParcelInput {
 export interface ShipmentInput {
   scope: string;
   pickupAddress: string;
+  pickupCity: string;
+  pickupState: string;
   pickupPincode: string;
   pickupContactPerson: string;
   pickupContactNo: string;
@@ -32,6 +36,8 @@ export interface ShipmentInput {
   dimensions: string;
   parcels: ParcelInput[];
   deliveryAddress: string;
+  deliveryCity: string;
+  deliveryState: string;
   deliveryPincode: string;
   deliveryContactPerson: string;
   deliveryContactNo: string;
@@ -104,7 +110,7 @@ export interface BulkCreateErrorResponse {
 // the uploaded value wasn't Yes/No), which is an error until the user picks one.
 export type DgValue = '' | 'Yes' | 'No';
 
-export type ColKind = 'text' | 'number' | 'enum' | 'dgbool';
+export type ColKind = 'text' | 'number' | 'enum' | 'dgbool' | 'state';
 
 export interface ColumnDef {
   key: keyof ShipmentInput;
@@ -120,6 +126,8 @@ export interface ColumnDef {
 export const COLUMNS: ColumnDef[] = [
   { key: 'scope', label: 'Scope', kind: 'enum', required: true, allowedKey: 'scopes' },
   { key: 'pickupAddress', label: 'Pickup Address', kind: 'text', required: true, wide: true },
+  { key: 'pickupCity', label: 'Pickup City', kind: 'text', required: true },
+  { key: 'pickupState', label: 'Pickup State', kind: 'state', required: true },
   { key: 'pickupPincode', label: 'Pickup Pincode/ZIP', kind: 'text', required: true },
   { key: 'pickupContactPerson', label: 'Pickup Contact Person', kind: 'text', required: false },
   { key: 'pickupContactNo', label: 'Pickup Contact No', kind: 'text', required: true },
@@ -129,6 +137,8 @@ export const COLUMNS: ColumnDef[] = [
   // Parcels (pieces/weight/dimensions per parcel) are edited in a dedicated
   // expandable editor rendered by the grid, not as flat COLUMNS cells.
   { key: 'deliveryAddress', label: 'Delivery Address', kind: 'text', required: true, wide: true },
+  { key: 'deliveryCity', label: 'Delivery City', kind: 'text', required: true },
+  { key: 'deliveryState', label: 'Delivery State', kind: 'state', required: true },
   { key: 'deliveryPincode', label: 'Delivery Pincode/ZIP', kind: 'text', required: true },
   { key: 'deliveryContactNo', label: 'Delivery Contact No', kind: 'text', required: true },
   { key: 'deliveryContactPerson', label: 'Delivery Contact Person', kind: 'text', required: false },
@@ -162,9 +172,11 @@ export function validateRow(input: ShipmentInput, allowed: AllowedValues): Field
 
   const required: [keyof ShipmentInput, string][] = [
     ['pickupAddress', 'Pickup address is required'],
+    ['pickupCity', 'Pickup city is required'],
     ['pickupPincode', 'Pickup pincode is required'],
     ['pickupContactNo', 'Pickup contact number is required'],
     ['deliveryAddress', 'Delivery address is required'],
+    ['deliveryCity', 'Delivery city is required'],
     ['deliveryPincode', 'Delivery pincode is required'],
     ['deliveryContactNo', 'Delivery contact number is required'],
   ];
@@ -176,6 +188,16 @@ export function validateRow(input: ShipmentInput, allowed: AllowedValues): Field
   if (!inSet(input.shipmentType, allowed.types)) errs.push({ field: 'shipmentType', message: 'Please select a valid shipment type' });
   if (!inSet(input.mode, allowed.modes)) errs.push({ field: 'mode', message: 'Please select a valid mode' });
   if (!inSet(input.shipmentCategory, allowed.categories)) errs.push({ field: 'shipmentCategory', message: 'Please select a valid shipment category' });
+
+  // State is required + canonical for DOMESTIC; optional for international.
+  const domestic = String(input.scope ?? '').trim().toUpperCase() === 'DOMESTIC';
+  if (domestic) {
+    ([['pickupState', 'Pickup'], ['deliveryState', 'Delivery']] as const).forEach(([k, label]) => {
+      const v = String(input[k] ?? '').trim();
+      if (v === '') errs.push({ field: k, message: `${label} state is required` });
+      else if (!isValidIndianState(v)) errs.push({ field: k, message: `Please select a valid ${label.toLowerCase()} state` });
+    });
+  }
 
   errs.push(...validateParcels(input.parcels ?? []));
 

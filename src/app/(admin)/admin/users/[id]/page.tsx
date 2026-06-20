@@ -38,8 +38,7 @@ function LocationCard({ title, locations }: { title: string; locations: ClientLo
             <li key={l.id} className="text-sm border border-gray-100 rounded-lg p-3 bg-gray-50/50">
               <p className="font-medium text-brand-dark">{l.label}</p>
               <p className="text-gray-600 mt-0.5">
-                {l.address}
-                {l.pincode ? `, ${l.pincode}` : ''}
+                {[l.address, l.city, l.state, l.pincode].filter(Boolean).join(', ')}
               </p>
               {(l.contactPerson || l.contactNo || l.email) && (
                 <p className="text-gray-400 text-xs mt-1">{[l.contactPerson, l.contactNo, l.email].filter(Boolean).join(' · ')}</p>

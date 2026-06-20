@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { BrandDots } from '@/components/BrandLoader';
 import ParcelRows, { emptyParcel, type ParcelFormState } from '@/components/admin/ParcelRows';
 import PincodeNote from '@/components/PincodeNote';
+import StateSelect from '@/components/StateSelect';
+import { fetchPincodeAutofill } from '@/lib/pincode';
 import type { ClientLocation } from '@/lib/admin';
 
 const SCOPES = ['DOMESTIC', 'INTERNATIONAL'];
@@ -15,6 +17,8 @@ const CATEGORIES = ['DOC', 'NON-DOC'];
 interface FormState {
   scope: string;
   pickupAddress: string;
+  pickupCity: string;
+  pickupState: string;
   pickupPincode: string;
   pickupContactPerson: string;
   pickupContactNo: string;
@@ -23,6 +27,8 @@ interface FormState {
   pickupAltContactNo: string;
   parcels: ParcelFormState[];
   deliveryAddress: string;
+  deliveryCity: string;
+  deliveryState: string;
   deliveryPincode: string;
   deliveryContactPerson: string;
   deliveryContactNo: string;
@@ -40,6 +46,8 @@ interface FormState {
 const INITIAL: FormState = {
   scope: 'DOMESTIC',
   pickupAddress: '',
+  pickupCity: '',
+  pickupState: '',
   pickupPincode: '',
   pickupContactPerson: '',
   pickupContactNo: '',
@@ -48,6 +56,8 @@ const INITIAL: FormState = {
   pickupAltContactNo: '',
   parcels: [emptyParcel()],
   deliveryAddress: '',
+  deliveryCity: '',
+  deliveryState: '',
   deliveryPincode: '',
   deliveryContactPerson: '',
   deliveryContactNo: '',
@@ -133,10 +143,24 @@ export default function CreateShipmentPage() {
   }
 
   function fillPickup(l: ClientLocation) {
-    setForm((f) => ({ ...f, pickupAddress: l.address, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email, pickupAltContactPerson: l.altContactPerson, pickupAltContactNo: l.altContactNo }));
+    setForm((f) => ({ ...f, pickupAddress: l.address, pickupCity: l.city, pickupState: l.state, pickupPincode: l.pincode, pickupContactPerson: l.contactPerson, pickupContactNo: l.contactNo, pickupContactEmail: l.email, pickupAltContactPerson: l.altContactPerson, pickupAltContactNo: l.altContactNo }));
   }
   function fillDelivery(l: ClientLocation) {
-    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email, deliveryAltContactPerson: l.altContactPerson, deliveryAltContactNo: l.altContactNo }));
+    setForm((f) => ({ ...f, deliveryAddress: l.address, deliveryCity: l.city, deliveryState: l.state, deliveryPincode: l.pincode, deliveryContactPerson: l.contactPerson, deliveryContactNo: l.contactNo, deliveryContactEmail: l.email, deliveryAltContactPerson: l.altContactPerson, deliveryAltContactNo: l.altContactNo }));
+  }
+
+  // On a valid pincode, auto-fill State + City for that leg — only fields the user
+  // hasn't already typed, and only for domestic shipments.
+  async function autofill(which: 'pickup' | 'delivery', pincode: string) {
+    if (form.scope.trim().toUpperCase() !== 'DOMESTIC') return;
+    const sug = await fetchPincodeAutofill(pincode);
+    if (!sug) return;
+    setForm((f) => {
+      if (which === 'pickup') {
+        return { ...f, pickupCity: f.pickupCity || sug.city, pickupState: f.pickupState || sug.state };
+      }
+      return { ...f, deliveryCity: f.deliveryCity || sug.city, deliveryState: f.deliveryState || sug.state };
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -147,6 +171,8 @@ export default function CreateShipmentPage() {
     const payload = {
       scope: form.scope,
       pickupAddress: form.pickupAddress,
+      pickupCity: form.pickupCity,
+      pickupState: form.pickupState,
       pickupPincode: form.pickupPincode,
       pickupContactPerson: form.pickupContactPerson,
       pickupContactNo: form.pickupContactNo,
@@ -159,6 +185,8 @@ export default function CreateShipmentPage() {
         dimensions: p.dimensions,
       })),
       deliveryAddress: form.deliveryAddress,
+      deliveryCity: form.deliveryCity,
+      deliveryState: form.deliveryState,
       deliveryPincode: form.deliveryPincode,
       deliveryContactPerson: form.deliveryContactPerson,
       deliveryContactNo: form.deliveryContactNo,
@@ -305,8 +333,16 @@ export default function CreateShipmentPage() {
             <textarea id="pickupAddress" required rows={2} className={inputCls} value={form.pickupAddress} onChange={(e) => set('pickupAddress', e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
+            <label className={labelCls} htmlFor="pickupCity">City <span className="text-red-500">*</span></label>
+            <input id="pickupCity" required className={inputCls} value={form.pickupCity} onChange={(e) => set('pickupCity', e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls} htmlFor="pickupState">State <span className="text-red-500">*</span></label>
+            <StateSelect id="pickupState" className={inputCls} value={form.pickupState} onChange={(v) => set('pickupState', v)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <label className={labelCls} htmlFor="pickupPincode">Pincode / ZIP <span className="text-red-500">*</span></label>
-            <input id="pickupPincode" required className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} />
+            <input id="pickupPincode" required className={inputCls} value={form.pickupPincode} onChange={(e) => set('pickupPincode', e.target.value)} onBlur={() => autofill('pickup', form.pickupPincode)} />
             <PincodeNote pincode={form.pickupPincode} leg="pickup" scope={form.scope} />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -339,8 +375,16 @@ export default function CreateShipmentPage() {
             <textarea id="deliveryAddress" required rows={2} className={inputCls} value={form.deliveryAddress} onChange={(e) => set('deliveryAddress', e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
+            <label className={labelCls} htmlFor="deliveryCity">City <span className="text-red-500">*</span></label>
+            <input id="deliveryCity" required className={inputCls} value={form.deliveryCity} onChange={(e) => set('deliveryCity', e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls} htmlFor="deliveryState">State <span className="text-red-500">*</span></label>
+            <StateSelect id="deliveryState" className={inputCls} value={form.deliveryState} onChange={(v) => set('deliveryState', v)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <label className={labelCls} htmlFor="deliveryPincode">Pincode / ZIP <span className="text-red-500">*</span></label>
-            <input id="deliveryPincode" required className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} />
+            <input id="deliveryPincode" required className={inputCls} value={form.deliveryPincode} onChange={(e) => set('deliveryPincode', e.target.value)} onBlur={() => autofill('delivery', form.deliveryPincode)} />
             <PincodeNote pincode={form.deliveryPincode} leg="delivery" scope={form.scope} />
           </div>
           <div className="flex flex-col gap-1.5">

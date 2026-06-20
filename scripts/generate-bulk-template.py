@@ -52,6 +52,8 @@ COLUMNS = [
     ("REF", False, None),
     ("SCOPE", True, ["Domestic", "International"]),
     ("PICK UP ADDRESS", True, None),
+    ("PICK UP CITY", True, None),
+    ("PICK UP STATE", True, None),
     ("PICK UP PINCODE/ZIP CODE", True, None),
     ("PICK UP CONTACT PERSON", False, None),
     ("PICK UP CONTACT NO", True, None),
@@ -60,6 +62,8 @@ COLUMNS = [
     ("PICK UP ALTERNATE CONTACT NO", False, None),
     *_PARCEL_COLUMNS,
     ("DELIVERY ADDRESS", True, None),
+    ("DELIVERY CITY", True, None),
+    ("DELIVERY STATE", True, None),
     ("DELIVERY PINCODE/ZIP CODE", True, None),
     ("DELIVERY CONTACT NO", True, None),
     ("DELIVERY CONTACT PERSON", False, None),
@@ -77,6 +81,8 @@ WIDTHS = {
     "REF": 12,
     "SCOPE": 16,
     "PICK UP ADDRESS": 40,
+    "PICK UP CITY": 20,
+    "PICK UP STATE": 20,
     "PICK UP PINCODE/ZIP CODE": 20,
     "PICK UP CONTACT PERSON": 22,
     "PICK UP CONTACT NO": 18,
@@ -84,6 +90,8 @@ WIDTHS = {
     "PICK UP ALTERNATE CONTACT PERSON": 28,
     "PICK UP ALTERNATE CONTACT NO": 26,
     "DELIVERY ADDRESS": 40,
+    "DELIVERY CITY": 20,
+    "DELIVERY STATE": 20,
     "DELIVERY PINCODE/ZIP CODE": 20,
     "DELIVERY CONTACT NO": 18,
     "DELIVERY CONTACT PERSON": 22,
@@ -105,6 +113,8 @@ NOTES = {
     "REF": "Your own reference (optional) — echoed back in the results so you can match errors to rows.",
     "SCOPE": "Dropdown: Domestic / International",
     "PICK UP ADDRESS": "Full pickup address",
+    "PICK UP CITY": "Pickup city",
+    "PICK UP STATE": "Pickup state — required for Domestic; use the full state name (e.g. Karnataka)",
     "PICK UP PINCODE/ZIP CODE": "Pickup pincode / ZIP code",
     "PICK UP CONTACT PERSON": "Contact name at pickup (optional)",
     "PICK UP CONTACT NO": "Contact phone at pickup",
@@ -112,6 +122,8 @@ NOTES = {
     "PICK UP ALTERNATE CONTACT PERSON": "Backup contact name at pickup (optional)",
     "PICK UP ALTERNATE CONTACT NO": "Backup contact phone at pickup (optional)",
     "DELIVERY ADDRESS": "Full delivery address",
+    "DELIVERY CITY": "Delivery city",
+    "DELIVERY STATE": "Delivery state — required for Domestic; use the full state name (e.g. West Bengal)",
     "DELIVERY PINCODE/ZIP CODE": "Delivery pincode / ZIP code",
     "DELIVERY CONTACT NO": "Contact phone at delivery",
     "DELIVERY CONTACT PERSON": "Contact name at delivery (optional)",
@@ -260,10 +272,12 @@ def build_instructions_sheet(ws):
     section("Example row")
     example = (
         "REF=ORD-1001 | SCOPE=Domestic | PICK UP ADDRESS=12 MG Road, Bengaluru 560001 | "
+        "PICK UP CITY=Bengaluru | PICK UP STATE=Karnataka | "
         "PICK UP PINCODE/ZIP CODE=560001 | PICK UP CONTACT NO=9876543210 | "
         "PARCEL 1 NO OF PIECES=2 | PARCEL 1 WEIGHT (IN KG)=5.5 | PARCEL 1 DIMENSIONS (IN CM)=30x20x15 | "
         "PARCEL 2 NO OF PIECES=1 | PARCEL 2 WEIGHT (IN KG)=3 | "
         "DELIVERY ADDRESS=4 Park Street, Kolkata 700016 | "
+        "DELIVERY CITY=Kolkata | DELIVERY STATE=West Bengal | "
         "DELIVERY PINCODE/ZIP CODE=700016 | DELIVERY CONTACT NO=9123456780 | "
         "SHIPMENT TYPE=Commercial | MODE=Express | SHIPMENT CATAGORY=Non-Doc | IS THIS A DG SHIPMENT?=No"
     )

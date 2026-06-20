@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BrandDots } from '@/components/BrandLoader';
 import { isOda, type PincodeLookup } from '@/lib/pincode';
+import { INDIAN_STATES } from '@/lib/states';
 import {
   COLUMNS,
   MAX_PARCELS,
@@ -265,6 +266,21 @@ export default function BulkReviewGrid({
           </option>
           <option value="Yes">Yes</option>
           <option value="No">No</option>
+        </select>
+      );
+    }
+
+    if (col.kind === 'state') {
+      const current = String(row.input[col.key] ?? '');
+      const known = INDIAN_STATES.includes(current);
+      return (
+        <select title={errMsg} value={known ? current : ''} onChange={(e) => setField(row.rowNumber, col.key, e.target.value)} className={cls}>
+          <option value="">Select…</option>
+          {/* Preserve an unrecognized uploaded value so it isn't silently dropped. */}
+          {!known && current !== '' && <option value={current}>{current} (unrecognized)</option>}
+          {INDIAN_STATES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
         </select>
       );
     }
