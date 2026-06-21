@@ -95,6 +95,7 @@ export default function ShipmentFilters({
   resultCount,
   capped,
   scope = 'admin',
+  statusOptions,
 }: {
   value: ShipmentFilterValues;
   onChange: (v: ShipmentFilterValues) => void;
@@ -104,8 +105,11 @@ export default function ShipmentFilters({
   // 'client' hides the Client-code and Source filters (a client only ever sees
   // their own shipments), reusing everything else.
   scope?: 'admin' | 'client';
+  // Status options for the filter (admin-managed). Falls back to the built-ins.
+  statusOptions?: { code: string; label: string }[];
 }) {
   const [more, setMore] = useState(false);
+  const statusChoices = statusOptions ?? STATUSES.map((s) => ({ code: s, label: s }));
   const [statusOpen, setStatusOpen] = useState(false);
 
   function set<K extends keyof ShipmentFilterValues>(k: K, val: ShipmentFilterValues[K]) {
@@ -158,10 +162,10 @@ export default function ShipmentFilters({
             <>
               <div className="fixed inset-0 z-10" onClick={() => setStatusOpen(false)} aria-hidden="true" />
               <div className="absolute z-20 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg p-2">
-                {STATUSES.map((s) => (
-                  <label key={s} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer text-sm">
-                    <input type="checkbox" checked={value.statuses.includes(s)} onChange={() => toggleStatus(s)} className="accent-brand-orange" />
-                    {s}
+                {statusChoices.map((s) => (
+                  <label key={s.code} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={value.statuses.includes(s.code)} onChange={() => toggleStatus(s.code)} className="accent-brand-orange" />
+                    {s.label}
                   </label>
                 ))}
               </div>

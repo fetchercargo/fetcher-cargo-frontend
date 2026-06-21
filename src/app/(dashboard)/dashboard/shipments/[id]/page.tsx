@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
+import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 
 interface TrackingUpdate {
   date: string;
@@ -56,13 +57,6 @@ interface ShipmentDetail {
   updates: TrackingUpdate[];
 }
 
-function statusClasses(status: string): string {
-  if (status === 'DELIVERED') return 'bg-green-100 text-green-700';
-  if (status === 'CANCELLED' || status === 'RTO') return 'bg-red-100 text-red-700';
-  if (status === 'ISSUE/DELAYED') return 'bg-amber-100 text-amber-700';
-  return 'bg-purple-100 text-brand-purple';
-}
-
 function titleCase(s: string | null): string {
   if (!s) return '—';
   return s
@@ -108,6 +102,12 @@ export default function ShipmentDetailPage() {
   const id = String(params.id);
   const [data, setData] = useState<ShipmentDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'notfound' | 'error'>('loading');
+  const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
+  const statusColors = statusMap(statuses);
+
+  useEffect(() => {
+    fetchStatuses().then(setStatuses);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -177,8 +177,8 @@ export default function ShipmentDetailPage() {
       {/* Header */}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">{data.awb || `#${data.id}`}</h1>
-        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${statusClasses(data.status)}`}>
-          {data.status}
+        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[data.status]?.color ?? 'purple')}`}>
+          {statusColors[data.status]?.label ?? data.status}
         </span>
         {data.isDg && (
           <span className="text-[11px] font-semibold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded">DG</span>

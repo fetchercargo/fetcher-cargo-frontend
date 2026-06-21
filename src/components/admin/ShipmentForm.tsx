@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SCOPES, TYPES, MODES, CATEGORIES, STATUSES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
+import { SCOPES, TYPES, MODES, CATEGORIES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
+import { fetchStatuses, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import { BrandDots } from '@/components/BrandLoader';
 import ParcelRows, { emptyParcel, type ParcelFormState } from '@/components/admin/ParcelRows';
 import PincodeNote from '@/components/PincodeNote';
@@ -134,6 +135,18 @@ export default function ShipmentForm({
   // pre-fill the address blocks via the picker. Addresses remain editable.
   const [savedPickups, setSavedPickups] = useState<ClientLocation[]>([]);
   const [savedDeliveries, setSavedDeliveries] = useState<ClientLocation[]>([]);
+  // Admin-managed statuses for the dropdown (active ones, plus the current value
+  // even if it's been deactivated so editing an old shipment still shows it).
+  const [statusList, setStatusList] = useState<StatusConfig[]>(FALLBACK_STATUSES);
+  useEffect(() => {
+    let alive = true;
+    fetchStatuses().then((list) => {
+      if (alive) setStatusList(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(() => {
     if (mode !== 'create' || !form.clientCode) return;
     let active = true;
@@ -344,7 +357,9 @@ export default function ShipmentForm({
           </Field>
           <Field label="Status" required>
             <select className={inputCls} value={form.status} onChange={(e) => set('status', e.target.value)}>
-              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              {statusList
+                .filter((s) => s.isActive || s.code === form.status)
+                .map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
             </select>
           </Field>
           <Field label="Batch no.">

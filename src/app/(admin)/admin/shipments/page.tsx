@@ -9,22 +9,26 @@ import ShipmentFilters, {
   buildShipmentQuery,
   type ShipmentFilterValues,
 } from '@/components/admin/ShipmentFilters';
-import { statusClasses, titleCase, formatDate, type AdminShipmentListItem, type ClientOption } from '@/lib/admin';
+import { titleCase, formatDate, type AdminShipmentListItem, type ClientOption } from '@/lib/admin';
+import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
 
 export default function AdminShipmentsListPage() {
   const router = useRouter();
   const [items, setItems] = useState<AdminShipmentListItem[] | null>(null);
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
   const [filters, setFilters] = useState<ShipmentFilterValues>(() =>
     typeof window !== 'undefined' ? parseShipmentFilters(window.location.search) : EMPTY_FILTERS,
   );
+  const statusColors = statusMap(statuses);
 
   useEffect(() => {
     fetch('/api/admin/clients')
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setClients(d as ClientOption[]))
       .catch(() => {});
+    fetchStatuses().then(setStatuses);
   }, []);
 
   // Debounced fetch + URL sync whenever filters change.
@@ -87,6 +91,7 @@ export default function AdminShipmentsListPage() {
           clients={clients}
           resultCount={items?.length ?? null}
           capped={(items?.length ?? 0) >= 500}
+          statusOptions={statuses.filter((s) => s.isActive).map((s) => ({ code: s.code, label: s.label }))}
         />
       </div>
 
@@ -125,7 +130,7 @@ export default function AdminShipmentsListPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{s.ownerEmail || <span className="text-gray-400">sheet</span>}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{s.customerRef || '—'}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses(s.status)}`}>{s.status}</span>
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[s.status]?.color ?? 'purple')}`}>{statusColors[s.status]?.label ?? s.status}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{(s.pickupPincode || '—')} → {(s.deliveryPincode || '—')}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{titleCase(s.mode)}</td>

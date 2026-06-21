@@ -1,4 +1,4 @@
-import { STATUS_STEPS, type ShipmentStatus } from '@/lib/types';
+import { FALLBACK_STATUSES, progressSteps, type StatusConfig } from '@/lib/status';
 
 function CheckIcon() {
   return (
@@ -8,14 +8,18 @@ function CheckIcon() {
   );
 }
 
-export default function ProgressBar({ status }: { status: ShipmentStatus }) {
-  const currentIndex = STATUS_STEPS.indexOf(status);
+// ProgressBar renders the forward status steps (normal + terminal, ordered). The
+// steps come from the admin-managed status set; if not provided it falls back to
+// the built-in set so the bar always renders.
+export default function ProgressBar({ status, statuses }: { status: string; statuses?: StatusConfig[] }) {
+  const steps = progressSteps(statuses && statuses.length ? statuses : FALLBACK_STATUSES);
+  const currentIndex = steps.findIndex((s) => s.code === status);
 
   return (
     <div className="w-full max-w-2xl mx-auto py-4 sm:py-8">
       <div className="flex items-center">
-        {STATUS_STEPS.map((step, i) => (
-          <div key={step} className="flex items-center flex-1 last:flex-none">
+        {steps.map((step, i) => (
+          <div key={step.code} className="flex items-center flex-1 last:flex-none">
             {/* Step circle + label */}
             <div className="flex flex-col items-center">
               <div
@@ -32,11 +36,11 @@ export default function ProgressBar({ status }: { status: ShipmentStatus }) {
                   i <= currentIndex ? 'text-green-600' : 'text-gray-400'
                 }`}
               >
-                {step}
+                {step.label}
               </span>
             </div>
             {/* Connecting line */}
-            {i < STATUS_STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <div
                 className={`flex-1 h-1 mx-0.5 sm:mx-1 rounded-full transition-all duration-300 ${
                   i < currentIndex ? 'bg-green-500' : 'bg-gray-200'

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ShipmentTracking } from '@/lib/types';
 import TrackingResult from './TrackingResult';
 import { BrandDots } from '@/components/BrandLoader';
+import { fetchStatuses, type StatusConfig } from '@/lib/status';
 
 function RefreshIcon() {
   return (
@@ -23,6 +24,17 @@ export default function TrackingSearch() {
   const [captchaQuestion, setCaptchaQuestion] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [statuses, setStatuses] = useState<StatusConfig[] | undefined>(undefined);
+
+  useEffect(() => {
+    let alive = true;
+    fetchStatuses().then((list) => {
+      if (alive) setStatuses(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const fetchCaptcha = useCallback(async () => {
     try {
@@ -141,7 +153,7 @@ export default function TrackingSearch() {
         </div>
       )}
 
-      {result && <TrackingResult data={result} />}
+      {result && <TrackingResult data={result} statuses={statuses} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useDashboardUser } from '@/components/dashboard/DashboardContext';
 import BrandLoader from '@/components/BrandLoader';
+import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 
 interface ShipmentSummary {
   id: number;
@@ -24,13 +25,6 @@ interface ShipmentSummary {
 
 // Statuses that count as "in transit" (actively moving).
 const IN_TRANSIT = new Set(['PICKED-UP', 'IN-TRANSIT']);
-
-function statusClasses(status: string): string {
-  if (status === 'DELIVERED') return 'bg-green-100 text-green-700';
-  if (status === 'CANCELLED' || status === 'RTO') return 'bg-red-100 text-red-700';
-  if (status === 'ISSUE/DELAYED') return 'bg-amber-100 text-amber-700';
-  return 'bg-purple-100 text-brand-purple';
-}
 
 function titleCase(s: string | null): string {
   if (!s) return '—';
@@ -63,6 +57,12 @@ export default function DashboardOverview() {
 
   const [shipments, setShipments] = useState<ShipmentSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
+  const statusColors = statusMap(statuses);
+
+  useEffect(() => {
+    fetchStatuses().then(setStatuses);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -192,8 +192,8 @@ export default function DashboardOverview() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses(s.status)}`}>
-                      {s.status}
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[s.status]?.color ?? 'purple')}`}>
+                      {statusColors[s.status]?.label ?? s.status}
                     </span>
                     <span className="text-xs text-gray-400">{formatDate(s.createdAt)}</span>
                   </div>

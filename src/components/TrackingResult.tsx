@@ -1,19 +1,19 @@
 import type { ShipmentTracking } from '@/lib/types';
 import ProgressBar from './ProgressBar';
 import Timeline from './Timeline';
+import { FALLBACK_STATUSES, dotClasses, statusMap, type StatusConfig } from '@/lib/status';
 
-export default function TrackingResult({ data }: { data: ShipmentTracking }) {
+export default function TrackingResult({ data, statuses }: { data: ShipmentTracking; statuses?: StatusConfig[] }) {
+  const list = statuses && statuses.length ? statuses : FALLBACK_STATUSES;
+  const map = statusMap(list);
+  const current = map[data.status];
+
   return (
     <div className="w-full mt-8 animate-fade-in">
       {/* Status + Estimated Delivery */}
       <div className="text-center">
-        <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-semibold text-white ${
-          data.status === 'DELIVERED' ? 'bg-green-500' :
-          data.status === 'CANCELLED' || data.status === 'RTO' ? 'bg-red-500' :
-          data.status === 'ISSUE/DELAYED' ? 'bg-amber-500' :
-          'bg-brand-purple'
-        }`}>
-          {data.status}
+        <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-semibold text-white ${dotClasses(current?.color ?? 'purple')}`}>
+          {current?.label ?? data.status}
         </span>
         {data.estimatedDeliveryDate && (
           <p className="text-gray-500 text-sm mt-3">
@@ -28,7 +28,7 @@ export default function TrackingResult({ data }: { data: ShipmentTracking }) {
       </div>
 
       {/* Progress Bar */}
-      <ProgressBar status={data.status} />
+      <ProgressBar status={data.status} statuses={list} />
 
       {/* Timeline */}
       <Timeline updates={data.updates} awb={data.awb} />

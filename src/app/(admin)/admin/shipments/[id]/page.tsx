@@ -6,7 +6,8 @@ import { useParams } from 'next/navigation';
 import ShipmentForm, { type ShipmentFormState } from '@/components/admin/ShipmentForm';
 import { emptyParcel } from '@/components/admin/ParcelRows';
 import TrackingEditor from '@/components/admin/TrackingEditor';
-import { statusClasses, type ShipmentDetail, type TrackingUpdate } from '@/lib/admin';
+import { type ShipmentDetail, type TrackingUpdate } from '@/lib/admin';
+import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
 
 function detailToForm(d: ShipmentDetail): Partial<ShipmentFormState> {
@@ -38,6 +39,12 @@ export default function AdminEditShipmentPage() {
   const [savingTrack, setSavingTrack] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
+  const statusColors = statusMap(statuses);
+
+  useEffect(() => {
+    fetchStatuses().then(setStatuses);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -103,7 +110,7 @@ export default function AdminEditShipmentPage() {
       {back}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">{data.awb || `#${data.id}`}</h1>
-        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${statusClasses(data.status)}`}>{data.status}</span>
+        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[data.status]?.color ?? 'purple')}`}>{statusColors[data.status]?.label ?? data.status}</span>
         {data.isDg && <span className="text-[11px] font-semibold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded">DG</span>}
       </div>
       <p className="text-gray-500 text-sm mt-1">

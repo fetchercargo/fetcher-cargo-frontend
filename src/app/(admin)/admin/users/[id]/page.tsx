@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { formatDate, statusClasses, type AdminShipmentListItem, type ClientDetail, type ClientLocation } from '@/lib/admin';
+import { formatDate, type AdminShipmentListItem, type ClientDetail, type ClientLocation } from '@/lib/admin';
+import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
 import DocumentManager from '@/components/admin/DocumentManager';
 import ResetPasswordModal from '@/components/admin/ResetPasswordModal';
@@ -58,6 +59,12 @@ export default function AdminViewUserPage() {
   const [state, setState] = useState<'loading' | 'ok' | 'notfound' | 'error'>('loading');
   const [shipments, setShipments] = useState<AdminShipmentListItem[] | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
+  const statusColors = statusMap(statuses);
+
+  useEffect(() => {
+    fetchStatuses().then(setStatuses);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -182,7 +189,7 @@ export default function AdminViewUserPage() {
                     <Link href={`/admin/shipments/${s.id}`} className="text-sm font-medium text-brand-dark hover:text-brand-orange transition-colors truncate">
                       {s.awb || `#${s.id}`}
                     </Link>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded shrink-0 ${statusClasses(s.status)}`}>{s.status}</span>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded shrink-0 ${badgeClasses(statusColors[s.status]?.color ?? 'purple')}`}>{statusColors[s.status]?.label ?? s.status}</span>
                   </li>
                 ))}
               </ul>

@@ -199,13 +199,6 @@ export function titleCase(s: string | null): string {
     .join('-');
 }
 
-export function statusClasses(status: string): string {
-  if (status === 'DELIVERED') return 'bg-green-100 text-green-700';
-  if (status === 'CANCELLED' || status === 'RTO') return 'bg-red-100 text-red-700';
-  if (status === 'ISSUE/DELAYED') return 'bg-amber-100 text-amber-700';
-  return 'bg-purple-100 text-brand-purple';
-}
-
 export function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';

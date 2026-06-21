@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
+import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import ShipmentFilters, {
   EMPTY_FILTERS,
   parseShipmentFilters,
@@ -26,13 +27,6 @@ interface ShipmentSummary {
   isDg: boolean;
   customerRef: string | null;
   createdAt: string;
-}
-
-function statusClasses(status: string): string {
-  if (status === 'DELIVERED') return 'bg-green-100 text-green-700';
-  if (status === 'CANCELLED' || status === 'RTO') return 'bg-red-100 text-red-700';
-  if (status === 'ISSUE/DELAYED') return 'bg-amber-100 text-amber-700';
-  return 'bg-purple-100 text-brand-purple';
 }
 
 function titleCase(s: string | null): string {
@@ -69,9 +63,15 @@ export default function MyShipmentsPage() {
   const router = useRouter();
   const [shipments, setShipments] = useState<ShipmentSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
+  const statusColors = statusMap(statuses);
   const [filters, setFilters] = useState<ShipmentFilterValues>(() =>
     typeof window !== 'undefined' ? parseShipmentFilters(window.location.search) : EMPTY_FILTERS,
   );
+
+  useEffect(() => {
+    fetchStatuses().then(setStatuses);
+  }, []);
 
   // Debounced fetch + URL sync whenever filters change (mirrors the admin list).
   useEffect(() => {
@@ -135,6 +135,7 @@ export default function MyShipmentsPage() {
           onChange={setFilters}
           resultCount={shipments?.length ?? null}
           capped={(shipments?.length ?? 0) >= 500}
+          statusOptions={statuses.filter((s) => s.isActive).map((s) => ({ code: s.code, label: s.label }))}
         />
       </div>
 
@@ -194,8 +195,8 @@ export default function MyShipmentsPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{s.customerRef || '—'}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses(s.status)}`}>
-                          {s.status}
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[s.status]?.color ?? 'purple')}`}>
+                          {statusColors[s.status]?.label ?? s.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{titleCase(s.scope)}</td>

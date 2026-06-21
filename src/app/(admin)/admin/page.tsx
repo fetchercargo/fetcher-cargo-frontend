@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { statusClasses, titleCase, formatDate, type AdminStats, type AdminShipmentListItem } from '@/lib/admin';
+import { titleCase, formatDate, type AdminStats, type AdminShipmentListItem } from '@/lib/admin';
+import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 
 function StatCard({ label, value, loading }: { label: string; value: number; loading: boolean }) {
   return (
@@ -18,10 +19,13 @@ function StatCard({ label, value, loading }: { label: string; value: number; loa
 export default function AdminOverviewPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recent, setRecent] = useState<AdminShipmentListItem[] | null>(null);
+  const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
+  const statusColors = statusMap(statuses);
 
   useEffect(() => {
     fetch('/api/admin/stats').then((r) => (r.ok ? r.json() : null)).then((d) => setStats(d as AdminStats)).catch(() => {});
     fetch('/api/admin/shipments').then((r) => (r.ok ? r.json() : [])).then((d) => setRecent((d as AdminShipmentListItem[]).slice(0, 8))).catch(() => setRecent([]));
+    fetchStatuses().then(setStatuses);
   }, []);
 
   const loading = stats === null;
@@ -60,7 +64,7 @@ export default function AdminOverviewPage() {
             ) : (
               Object.entries(stats!.byStatus).map(([status, n]) => (
                 <div key={status} className="flex items-center justify-between">
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses(status)}`}>{status}</span>
+                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[status]?.color ?? 'purple')}`}>{statusColors[status]?.label ?? status}</span>
                   <span className="text-sm font-semibold text-brand-dark">{n}</span>
                 </div>
               ))
@@ -93,7 +97,7 @@ export default function AdminOverviewPage() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses(s.status)}`}>{s.status}</span>
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[s.status]?.color ?? 'purple')}`}>{statusColors[s.status]?.label ?? s.status}</span>
                     <span className="text-xs text-gray-400">{formatDate(s.createdAt)}</span>
                   </div>
                 </Link>
