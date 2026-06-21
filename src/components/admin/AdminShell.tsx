@@ -118,14 +118,6 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         );
       })}
-      <Link
-        href="/dashboard"
-        onClick={onNavigate}
-        className="flex items-center gap-3 px-3 py-2.5 mt-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-50 hover:text-brand-dark transition-colors"
-      >
-        <span className="text-base leading-none">↩</span>
-        <span>Client view</span>
-      </Link>
     </nav>
   );
 }
