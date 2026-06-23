@@ -92,7 +92,9 @@ export function progressSteps(list: StatusConfig[]): StatusConfig[] {
 // on any failure so callers always have something to render.
 export async function fetchStatuses(): Promise<StatusConfig[]> {
   try {
-    const res = await fetch('/api/statuses');
+    // no-store: status config changes (order/colors/new statuses) must show on
+    // the next load, never a cached copy.
+    const res = await fetch('/api/statuses', { cache: 'no-store' });
     if (!res.ok) return FALLBACK_STATUSES;
     const data = (await res.json()) as StatusConfig[];
     return Array.isArray(data) && data.length ? data : FALLBACK_STATUSES;
