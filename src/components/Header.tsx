@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
   { label: 'Home', href: 'https://fetchercargo.com/' },
@@ -42,7 +43,7 @@ const NAV_ITEMS = [
       { label: 'Ecommerce', href: 'https://fetchercargo.com/ecommerce/' },
     ],
   },
-  { label: 'Tracking', href: '/', active: true },
+  { label: 'Tracking', href: '/' },
   { label: 'Contact', href: 'https://fetchercargo.com/contact/' },
   { label: 'Login', href: '/login' },
 ];
@@ -74,9 +75,13 @@ function CloseIcon() {
 }
 
 export default function Header() {
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileDropdown, setMobileDropdown] = useState<string | null>(null);
+
+  // An internal nav item is active only on its own route (external links never).
+  const isActive = (href: string) => href.startsWith('/') && pathname === href;
 
   return (
     <header className="w-full bg-white relative z-50">
@@ -107,7 +112,7 @@ export default function Header() {
               {item.children ? (
                 <button
                   className={`flex items-center px-[15px] py-[15px] text-[15px] font-semibold capitalize transition-colors ${
-                    item.active ? 'text-brand-orange' : 'text-brand-gray hover:text-brand-orange'
+                    isActive(item.href) ? 'text-brand-orange' : 'text-brand-gray hover:text-brand-orange'
                   }`}
                 >
                   {item.label}
@@ -117,7 +122,7 @@ export default function Header() {
                 <Link
                   href={item.href}
                   className={`flex items-center px-[15px] py-[15px] text-[15px] font-semibold capitalize transition-colors ${
-                    item.active ? 'text-brand-orange' : 'text-brand-gray hover:text-brand-orange'
+                    isActive(item.href) ? 'text-brand-orange' : 'text-brand-gray hover:text-brand-orange'
                   }`}
                 >
                   {item.label}
@@ -160,7 +165,7 @@ export default function Header() {
                 <>
                   <button
                     className={`w-full flex items-center justify-between px-5 py-3 text-[15px] font-semibold capitalize ${
-                      item.active ? 'text-brand-orange' : 'text-brand-gray'
+                      isActive(item.href) ? 'text-brand-orange' : 'text-brand-gray'
                     }`}
                     onClick={() => setMobileDropdown(mobileDropdown === item.label ? null : item.label)}
                   >
@@ -190,7 +195,7 @@ export default function Header() {
                 <Link
                   href={item.href}
                   className={`block px-5 py-3 text-[15px] font-semibold capitalize ${
-                    item.active ? 'text-brand-orange' : 'text-brand-gray'
+                    isActive(item.href) ? 'text-brand-orange' : 'text-brand-gray'
                   }`}
                   onClick={() => setMobileOpen(false)}
                 >
