@@ -5,6 +5,9 @@ export interface AdminShipmentListItem {
   awb: string | null;
   clientCode: string | null;
   ownerEmail: string | null;
+  businessName: string | null;
+  businessEmail: string | null;
+  primaryContactPerson: string | null;
   status: string;
   scope: string | null;
   shipmentType: string | null;
@@ -16,6 +19,8 @@ export interface AdminShipmentListItem {
   deliveryPincode: string | null;
   isDg: boolean;
   customerRef: string | null;
+  batchNo: string | null;
+  billingAmount: number | null;
   createdAt: string;
 }
 
