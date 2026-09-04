@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatDate, type AdminShipmentListItem, type ClientDetail, type ClientLocation } from '@/lib/admin';
@@ -8,6 +8,7 @@ import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusC
 import BrandLoader from '@/components/BrandLoader';
 import DocumentManager from '@/components/admin/DocumentManager';
 import ResetPasswordModal from '@/components/admin/ResetPasswordModal';
+import DeactivateModal from '@/components/admin/DeactivateModal';
 
 function initials(name: string, email: string): string {
   const base = (name || email || '?').trim();
@@ -59,6 +60,7 @@ export default function AdminViewUserPage() {
   const [state, setState] = useState<'loading' | 'ok' | 'notfound' | 'error'>('loading');
   const [shipments, setShipments] = useState<AdminShipmentListItem[] | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [statuses, setStatuses] = useState<StatusConfig[]>(FALLBACK_STATUSES);
   const statusColors = statusMap(statuses);
 
@@ -66,7 +68,7 @@ export default function AdminViewUserPage() {
     fetchStatuses().then(setStatuses);
   }, []);
 
-  useEffect(() => {
+  const loadUser = useCallback(() => {
     let active = true;
     fetch(`/api/admin/users/${id}`)
       .then(async (res) => {
@@ -90,6 +92,10 @@ export default function AdminViewUserPage() {
       active = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    return loadUser();
+  }, [loadUser]);
 
   const back = (
     <Link href="/admin/users" className="text-sm font-semibold text-brand-gray hover:text-brand-orange transition-colors">
@@ -145,6 +151,16 @@ export default function AdminViewUserPage() {
               View shipments
             </Link>
           )}
+          <button
+            onClick={() => setDeactivateOpen(true)}
+            className={
+              u.isActive
+                ? 'px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors'
+                : 'px-4 py-2 text-sm font-semibold text-brand-gray border border-gray-200 rounded-lg hover:text-brand-dark hover:border-gray-300 transition-colors'
+            }
+          >
+            {u.isActive ? 'Deactivate' : 'Reactivate'}
+          </button>
           <button onClick={() => setResetOpen(true)} className="px-4 py-2 text-sm font-semibold text-brand-gray border border-gray-200 rounded-lg hover:text-brand-dark hover:border-gray-300 transition-colors">
             Reset password
           </button>
@@ -153,6 +169,14 @@ export default function AdminViewUserPage() {
           </Link>
         </div>
       </div>
+
+      {!u.isActive && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          This account is deactivated.
+          {u.deactivationReason ? ` Reason: ${u.deactivationReason}.` : ''}
+          {u.deactivatedAt ? ` Deactivated on ${formatDate(u.deactivatedAt)}.` : ''}
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -214,6 +238,19 @@ export default function AdminViewUserPage() {
       )}
 
       {resetOpen && <ResetPasswordModal userId={u.id} email={u.email} onClose={() => setResetOpen(false)} />}
+      {deactivateOpen && (
+        <DeactivateModal
+          userId={u.id}
+          name={u.name}
+          email={u.email}
+          isActive={u.isActive}
+          onClose={() => setDeactivateOpen(false)}
+          onDone={() => {
+            setDeactivateOpen(false);
+            loadUser();
+          }}
+        />
+      )}
     </div>
   );
 }

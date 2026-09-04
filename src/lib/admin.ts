@@ -107,6 +107,9 @@ export interface AdminUser {
   businessEmail: string;
   primaryTel: string;
   primaryContactPerson: string;
+  isActive: boolean;
+  deactivatedAt?: string | null;
+  deactivationReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
