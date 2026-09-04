@@ -27,6 +27,38 @@ body {
   line-height: 1.7;
 }
 
+/* ── Select chevron ───────────────────────────────────────────────────────
+   Native <select> draws its arrow hard against the right border, which sits
+   tighter than the chevrons in our own dropdown buttons (ColumnPicker,
+   ClientCombobox, the Status filter) — those inset by 0.75rem because their
+   button has px-3. Replacing the native arrow lines every dropdown in the app
+   up on the same inset instead of leaving native and custom ones mismatched.
+
+   Applied globally rather than per call site: there are ~30 selects across the
+   admin and dashboard, and a shared rule cannot drift the way class strings do.
+   `select[multiple]` and sized selects render as list boxes with no arrow, so
+   they are excluded. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: var(--fc-select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 14px 14px;
+  /* Room for the chevron so a long option label cannot run underneath it. */
+  padding-right: 2.25rem;
+}
+
+:root {
+  /* Matches the inline chevron SVG used by our custom dropdown buttons:
+     same path, same 2px stroke, stroked in gray-400. */
+  --fc-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+select:disabled {
+  opacity: 0.6;
+}
+
 /* Dropdown animation */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-4px); }
