@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import ClientCombobox from '@/components/admin/ClientCombobox';
 import { type CustomField } from '@/lib/customFields';
+import { CustomFieldInputControl, CustomFieldLabel } from '@/components/admin/CustomFieldsSection';
 import { SCOPES, TYPES, MODES, CATEGORIES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
 import { fetchStatuses, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import { BrandDots } from '@/components/BrandLoader';
@@ -391,28 +392,28 @@ export default function ShipmentForm({
       {mode === 'create' && customFields.length > 0 && (
         <Section title="Reference Fields">
           {customFields.map((f) => (
-            <Field key={f.id} label={f.label} full>
-              {f.fieldType === 'boolean' ? (
-                <select
-                  className={inputCls}
-                  value={cfValues[f.id] ?? ''}
-                  onChange={(e) => setCfValues((v) => ({ ...v, [f.id]: e.target.value }))}
-                >
-                  <option value="">—</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              ) : (
-                <input
-                  className={inputCls}
-                  type={f.fieldType === 'number' ? 'number' : 'text'}
-                  step={f.fieldType === 'number' ? 'any' : undefined}
-                  value={cfValues[f.id] ?? ''}
-                  onChange={(e) => setCfValues((v) => ({ ...v, [f.id]: e.target.value }))}
-                />
-              )}
-              {f.visibleToClient && <p className="text-xs text-gray-400">Client can see this</p>}
-            </Field>
+            // Not `full`: these sit two-up like the rest of the form, and use the
+            // same label + control as the shipment page so a field looks identical
+            // whether it is filled in at booking or afterwards.
+            <div key={f.id} className="flex flex-col gap-1.5">
+              <CustomFieldLabel
+                field={{
+                  fieldId: f.id,
+                  label: f.label,
+                  key: f.key,
+                  fieldType: f.fieldType,
+                  visibleToClient: f.visibleToClient,
+                  isActive: f.isActive,
+                  sortOrder: f.sortOrder,
+                  value: '',
+                }}
+              />
+              <CustomFieldInputControl
+                field={{ fieldId: f.id, fieldType: f.fieldType }}
+                value={cfValues[f.id] ?? ''}
+                onChange={(v) => setCfValues((prev) => ({ ...prev, [f.id]: v }))}
+              />
+            </div>
           ))}
         </Section>
       )}

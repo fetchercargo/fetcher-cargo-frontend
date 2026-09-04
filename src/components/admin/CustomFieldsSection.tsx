@@ -5,8 +5,68 @@ import Link from 'next/link';
 import { BrandDots } from '@/components/BrandLoader';
 import { saveShipmentCustomFields, type CustomFieldValue } from '@/lib/customFields';
 
+// Matches the inputs in ShipmentForm, which this section sits directly beneath —
+// a smaller control here read as a different, lesser part of the page.
 const inputCls =
-  'w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent';
+  'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow';
+
+/** Small chip for a field's flags, matching the DG badge used in the tables. */
+function Chip({ tone, children }: { tone: 'client' | 'muted'; children: React.ReactNode }) {
+  const cls =
+    tone === 'client'
+      ? 'bg-green-50 text-green-700 border-green-200'
+      : 'bg-gray-50 text-gray-500 border-gray-200';
+  return (
+    <span className={`text-[10px] font-semibold uppercase tracking-wide border px-1.5 py-0.5 rounded ${cls}`}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Renders the input for one field. Shared with the create form so a field looks
+ * and behaves identically whether it is filled in at booking or afterwards.
+ */
+export function CustomFieldInputControl({
+  field,
+  value,
+  onChange,
+}: {
+  field: Pick<CustomFieldValue, 'fieldId' | 'fieldType'>;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  if (field.fieldType === 'boolean') {
+    return (
+      <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
+        {/* Blank stays reachable so a value can be cleared. */}
+        <option value="">—</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    );
+  }
+  return (
+    <input
+      type={field.fieldType === 'number' ? 'number' : 'text'}
+      step={field.fieldType === 'number' ? 'any' : undefined}
+      className={inputCls}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
+/** Label + flag chips, shared with the create form. */
+export function CustomFieldLabel({ field }: { field: CustomFieldValue }) {
+  return (
+    <span className="flex items-center gap-2 flex-wrap">
+      <span className="text-sm font-medium text-brand-dark">{field.label}</span>
+      {field.visibleToClient && <Chip tone="client">Client</Chip>}
+      {!field.isActive && <Chip tone="muted">Inactive</Chip>}
+    </span>
+  );
+}
 
 export default function CustomFieldsSection({
   shipmentId,
@@ -43,69 +103,65 @@ export default function CustomFieldsSection({
     }
   }
 
-  if (initial.length === 0) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-        <h2 className="text-base font-semibold text-brand-dark">Reference Fields</h2>
-        <p className="text-gray-400 text-sm mt-3">
-          No custom fields yet — define them in{' '}
-          <Link href="/admin/settings/fields" className="text-brand-orange hover:text-brand-coral font-medium">
-            Settings → Reference Fields
-          </Link>
-          .
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-brand-dark">Reference Fields</h2>
-
-      <div className="mt-4 space-y-4">
-        {initial.map((f) => (
-          <label key={f.fieldId} className="block">
-            <span className="block text-sm font-medium text-brand-dark">
-              {f.label}
-              {!f.isActive && <span className="ml-1.5 text-xs font-normal text-gray-400">(inactive)</span>}
-              {f.visibleToClient && <span className="ml-1.5 text-xs font-normal text-gray-400">Client can see this</span>}
-            </span>
-            {f.fieldType === 'boolean' ? (
-              <select
-                value={values[f.fieldId] ?? ''}
-                onChange={(e) => setValues((v) => ({ ...v, [f.fieldId]: e.target.value }))}
-                className={`${inputCls} mt-1`}
-              >
-                <option value="">—</option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
-            ) : (
-              <input
-                type={f.fieldType === 'number' ? 'number' : 'text'}
-                step={f.fieldType === 'number' ? 'any' : undefined}
-                value={values[f.fieldId] ?? ''}
-                onChange={(e) => setValues((v) => ({ ...v, [f.fieldId]: e.target.value }))}
-                className={`${inputCls} mt-1`}
-              />
-            )}
-          </label>
-        ))}
-      </div>
-
-      {error && <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
-
-      <div className="flex items-center justify-end gap-3 mt-4">
-        {saved && !error && <span className="text-sm font-medium text-green-600">✓ Saved</span>}
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="px-6 py-2.5 bg-brand-purple text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-base font-semibold text-brand-dark">Reference Fields</h2>
+        <Link
+          href="/admin/settings/fields"
+          className="text-xs font-semibold text-brand-gray hover:text-brand-orange transition-colors whitespace-nowrap"
         >
-          {saving ? <span className="inline-flex items-center gap-2"><BrandDots /> Saving…</span> : 'Save custom fields'}
-        </button>
+          Manage fields →
+        </Link>
       </div>
+
+      {initial.length === 0 ? (
+        <p className="text-gray-400 text-sm mt-3">
+          No reference fields yet — add one in{' '}
+          <Link href="/admin/settings/fields" className="text-brand-orange hover:text-brand-coral font-medium">
+            Settings
+          </Link>{' '}
+          and it will appear on every shipment.
+        </p>
+      ) : (
+        <>
+          {/* Two columns, matching the sections above it on this page. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            {initial.map((f) => (
+              <label key={f.fieldId} className="flex flex-col gap-1.5">
+                <CustomFieldLabel field={f} />
+                <CustomFieldInputControl
+                  field={f}
+                  value={values[f.fieldId] ?? ''}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [f.fieldId]: v }))}
+                />
+              </label>
+            ))}
+          </div>
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 mt-5">
+            {saved && !error && <span className="text-sm font-medium text-green-600">✓ Saved</span>}
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="px-8 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <BrandDots /> Saving…
+                </span>
+              ) : (
+                'Save'
+              )}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
