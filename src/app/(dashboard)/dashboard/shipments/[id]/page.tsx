@@ -257,7 +257,7 @@ export default function ShipmentDetailPage() {
 
         {/* Client-visible custom fields, already filtered by the API. */}
         {data.customFields && data.customFields.length > 0 && (
-          <Section title="Additional Information">
+          <Section title="Reference Fields">
             {data.customFields.map((f) => (
               <Row key={f.fieldId} label={f.label} value={formatCustomFieldValue(f.fieldType, f.value)} />
             ))}

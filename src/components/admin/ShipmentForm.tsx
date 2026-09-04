@@ -389,7 +389,7 @@ export default function ShipmentForm({
       )}
 
       {mode === 'create' && customFields.length > 0 && (
-        <Section title="Additional Information">
+        <Section title="Reference Fields">
           {customFields.map((f) => (
             <Field key={f.id} label={f.label} full>
               {f.fieldType === 'boolean' ? (
