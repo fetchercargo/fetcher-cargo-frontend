@@ -540,8 +540,8 @@ function ReviewRow({
   );
 }
 
-// ParcelEditor is the inline per-parcel editor: a compact list of 1..MAX_PARCELS
-// parcels, each with pieces/weight/dimensions, plus add/remove. Invalid pieces/
+// ParcelEditor is the inline per-parcel editor: a list of parcels, each with
+// pieces/weight/dimensions, plus add/remove. Invalid pieces/
 // weight cells are highlighted using the row's per-parcel error keys.
 function ParcelEditor({
   parcels,
@@ -647,7 +647,7 @@ function ParcelEditor({
           disabled={parcels.length >= MAX_PARCELS}
           className="text-sm font-semibold text-brand-orange hover:text-brand-coral disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          + Add parcel{parcels.length >= MAX_PARCELS ? ` (max ${MAX_PARCELS})` : ''}
+          + Add parcel
         </button>
         <span className="text-xs text-gray-500">
           Total: {totals.noOfPieces} pcs{totals.weightKg ? ` · ${+totals.weightKg.toFixed(3)} kg` : ''}

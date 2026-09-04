@@ -7,8 +7,10 @@
 
 import { isValidIndianState } from './states';
 
-// MAX_PARCELS mirrors the backend model.MaxParcels — the hard cap per shipment.
-export const MAX_PARCELS = 5;
+// MAX_PARCELS mirrors the backend model.MaxParcels. It is an abuse ceiling, not
+// a limit on clients: a shipment may have as many parcels as it really has, and
+// a single AWB with twenty differently sized boxes is ordinary.
+export const MAX_PARCELS = 500;
 
 // ParcelInput is one parcel in a booking payload (mirrors Go model.ParcelInput).
 export interface ParcelInput {
