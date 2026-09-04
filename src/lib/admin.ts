@@ -17,6 +17,8 @@ export interface AdminShipmentListItem {
   weightKg: number | null;
   pickupPincode: string | null;
   deliveryPincode: string | null;
+  pickupCity: string | null;
+  deliveryCity: string | null;
   isDg: boolean;
   customerRef: string | null;
   batchNo: string | null;
@@ -208,4 +210,12 @@ export function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Time first, then the date — same date formatting as formatDate above.
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${time} · ${d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}`;
 }

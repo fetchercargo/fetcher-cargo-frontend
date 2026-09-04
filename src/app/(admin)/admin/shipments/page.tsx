@@ -10,7 +10,7 @@ import ShipmentFilters, {
   type ShipmentFilterValues,
 } from '@/components/admin/ShipmentFilters';
 import ColumnPicker, { SHIPMENT_COLUMNS, DEFAULT_COLUMN_KEYS } from '@/components/admin/ColumnPicker';
-import { titleCase, formatDate, type AdminShipmentListItem, type ClientOption } from '@/lib/admin';
+import { titleCase, formatDateTime, type AdminShipmentListItem, type ClientOption } from '@/lib/admin';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
 
@@ -114,11 +114,11 @@ export default function AdminShipmentsListPage() {
           </td>
         );
       case 'route':
-        return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{s.pickupPincode || '—'} → {s.deliveryPincode || '—'}</td>;
+        return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{s.pickupCity || '—'} → {s.deliveryCity || '—'}</td>;
       case 'mode':
         return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{titleCase(s.mode)}</td>;
       case 'createdAt':
-        return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDate(s.createdAt)}</td>;
+        return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDateTime(s.createdAt)}</td>;
       case 'id':
         return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{s.id}</td>;
       case 'scope':

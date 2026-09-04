@@ -8,37 +8,41 @@ export interface ShipmentColumn {
 }
 
 // Canonical, ordered list of columns available on the admin shipments table.
+// This order — not the order boxes are ticked — decides the table layout, so the
+// eight defaults come first, in the exact sequence they should render.
 export const SHIPMENT_COLUMNS: ShipmentColumn[] = [
+  // Defaults.
   { key: 'awb', label: 'AWB' },
   { key: 'clientCode', label: 'Client' },
-  { key: 'ownerEmail', label: 'Email' },
   { key: 'businessName', label: 'Business name' },
+  { key: 'status', label: 'Status' },
+  { key: 'createdAt', label: 'Created' },
+  { key: 'route', label: 'Route' },
+  { key: 'mode', label: 'Mode' },
+  { key: 'shipmentType', label: 'Type' },
+  // Opt-in extras, grouped by kind; each lands right of the defaults when enabled.
+  { key: 'ownerEmail', label: 'Email' },
   { key: 'businessEmail', label: 'Business email' },
   { key: 'primaryContactPerson', label: 'Contact person' },
   { key: 'customerRef', label: 'Reference' },
-  { key: 'status', label: 'Status' },
-  { key: 'route', label: 'Route' },
-  { key: 'mode', label: 'Mode' },
-  { key: 'createdAt', label: 'Created' },
-  { key: 'id', label: 'ID' },
+  { key: 'batchNo', label: 'Batch no' },
   { key: 'scope', label: 'Scope' },
-  { key: 'shipmentType', label: 'Type' },
   { key: 'shipmentCategory', label: 'Category' },
   { key: 'noOfPieces', label: 'Pieces' },
   { key: 'weightKg', label: 'Weight (kg)' },
-  { key: 'batchNo', label: 'Batch no' },
   { key: 'billingAmount', label: 'Billing (₹)' },
+  { key: 'id', label: 'ID' },
 ];
 
 export const DEFAULT_COLUMN_KEYS: string[] = [
   'awb',
   'clientCode',
-  'ownerEmail',
-  'customerRef',
+  'businessName',
   'status',
+  'createdAt',
   'route',
   'mode',
-  'createdAt',
+  'shipmentType',
 ];
 
 const ctl =
