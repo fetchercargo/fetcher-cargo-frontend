@@ -13,8 +13,8 @@ const CARDS: SettingCard[] = [
     href: '/admin/settings/statuses',
   },
   {
-    title: 'Custom Fields',
-    description: 'Add your own fields to every shipment — reference numbers, internal notes. Choose which ones clients can see.',
+    title: 'Reference Fields',
+    description: 'Extra fields on every shipment — reference numbers, internal notes. Choose which ones clients can see.',
     href: '/admin/settings/fields',
   },
 ];

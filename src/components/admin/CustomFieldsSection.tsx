@@ -50,7 +50,7 @@ export default function CustomFieldsSection({
         <p className="text-gray-400 text-sm mt-3">
           No custom fields yet — define them in{' '}
           <Link href="/admin/settings/fields" className="text-brand-orange hover:text-brand-coral font-medium">
-            Settings → Custom Fields
+            Settings → Reference Fields
           </Link>
           .
         </p>

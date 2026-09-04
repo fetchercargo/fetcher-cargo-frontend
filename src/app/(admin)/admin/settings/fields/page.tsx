@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
 import {
@@ -15,7 +15,17 @@ import {
 } from '@/lib/customFields';
 
 function toInput(f: CustomField): CustomFieldInput {
-  return { label: f.label, fieldType: f.fieldType, visibleToClient: f.visibleToClient, isActive: f.isActive, sortOrder: f.sortOrder };
+  return {
+    label: f.label,
+    fieldType: f.fieldType,
+    visibleToClient: f.visibleToClient,
+    isActive: f.isActive,
+    sortOrder: f.sortOrder,
+  };
+}
+
+function emptyDraft(nextOrder: number): CustomFieldInput {
+  return { label: '', fieldType: 'text', visibleToClient: false, isActive: true, sortOrder: nextOrder };
 }
 
 function typeLabel(t: CustomFieldType): string {
@@ -31,20 +41,47 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   }
 }
 
-export default function CustomFieldsPage() {
+/** Toggle switch, matching the Active control on the Status Config screen. */
+function Toggle({
+  on,
+  onChange,
+  disabled,
+  label,
+}: {
+  on: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      aria-label={label}
+      aria-pressed={on}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+        on ? 'bg-green-500' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          on ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
+}
+
+export default function ReferenceFieldsPage() {
   const [items, setItems] = useState<CustomField[] | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [editing, setEditing] = useState<{ id: number; draft: CustomFieldInput } | null>(null);
+  // id === null means "adding", matching the Status Config dialog.
+  const [editing, setEditing] = useState<{ id: number | null; draft: CustomFieldInput; key?: string } | null>(null);
+  const [dialogError, setDialogError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [newLabel, setNewLabel] = useState('');
-  const [newType, setNewType] = useState<CustomFieldType>('text');
-  const [newVisible, setNewVisible] = useState(false);
-  const [adding, setAdding] = useState(false);
-  // Inline error for the row currently being edited (e.g. the type-locked
-  // message). The row stays in edit state so the admin can revert their change.
-  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -63,64 +100,59 @@ export default function CustomFieldsPage() {
 
   const reload = () => setReloadKey((k) => k + 1);
 
-  async function add() {
-    const label = newLabel.trim();
-    if (!label) {
-      setBanner('Field name is required.');
-      return;
-    }
+  function openNew() {
     const nextOrder = items && items.length ? Math.max(...items.map((f) => f.sortOrder)) + 10 : 10;
-    setAdding(true);
-    setBanner(null);
-    try {
-      const res = await createCustomField({ label, fieldType: newType, visibleToClient: newVisible, isActive: true, sortOrder: nextOrder });
-      if (!res.ok) {
-        setBanner(await errorMessage(res, 'Could not add the field.'));
-        return;
-      }
-      setNewLabel('');
-      setNewType('text');
-      setNewVisible(false);
-      reload();
-    } catch {
-      setBanner('Could not add the field.');
-    } finally {
-      setAdding(false);
-    }
+    setDialogError(null);
+    setEditing({ id: null, draft: emptyDraft(nextOrder) });
   }
 
   function openEdit(f: CustomField) {
-    setEditError(null);
-    setEditing({ id: f.id, draft: toInput(f) });
+    setDialogError(null);
+    setEditing({ id: f.id, draft: toInput(f), key: f.key });
   }
 
   async function save() {
     if (!editing) return;
     if (!editing.draft.label.trim()) {
-      setBanner('Field name is required.');
+      setDialogError('Field name is required.');
       return;
     }
     setSaving(true);
-    setBanner(null);
-    setEditError(null);
+    setDialogError(null);
     try {
-      const res = await updateCustomField(editing.id, editing.draft);
+      const res =
+        editing.id === null
+          ? await createCustomField(editing.draft)
+          : await updateCustomField(editing.id, editing.draft);
       if (!res.ok) {
-        // Show the API's message on the row itself and keep editing, so the
-        // admin can revert whatever the server rejected (e.g. a type change).
-        setEditError(await errorMessage(res, 'Could not save the field.'));
+        // Keep the dialog open so the change can be corrected — this is where
+        // the "type cannot be changed" refusal surfaces.
+        setDialogError(await errorMessage(res, 'Could not save the field.'));
         return;
       }
       setEditing(null);
       reload();
     } catch {
-      setEditError('Could not save the field.');
+      setDialogError('Could not save the field.');
     } finally {
       setSaving(false);
     }
   }
 
-  // Swap sortOrder with the neighbour and PUT both fields. No-op at the ends.
+  async function toggle(f: CustomField, patch: Partial<CustomFieldInput>) {
+    setBusyId(f.id);
+    setBanner(null);
+    try {
+      const res = await updateCustomField(f.id, { ...toInput(f), ...patch });
+      if (!res.ok) setBanner(await errorMessage(res, 'Could not update the field.'));
+      else reload();
+    } catch {
+      setBanner('Could not update the field.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function move(f: CustomField, dir: -1 | 1) {
     if (!items) return;
     const idx = items.findIndex((x) => x.id === f.id);
@@ -128,20 +160,16 @@ export default function CustomFieldsPage() {
     if (swapWith < 0 || swapWith >= items.length) return;
     const other = items[swapWith];
     setBusyId(f.id);
+    setBanner(null);
     try {
-      const resA = await updateCustomField(f.id, { ...toInput(f), sortOrder: other.sortOrder });
-      if (!resA.ok) {
-        setBanner(await errorMessage(resA, 'Could not reorder.'));
-        return;
-      }
-      const resB = await updateCustomField(other.id, { ...toInput(other), sortOrder: f.sortOrder });
-      if (!resB.ok) {
-        setBanner(await errorMessage(resB, 'Could not reorder.'));
-        return;
-      }
+      // Both definitions are resent whole, so fieldType must ride along or the
+      // reorder would quietly reset each field's type.
+      const a = await updateCustomField(f.id, { ...toInput(f), sortOrder: other.sortOrder });
+      const b = await updateCustomField(other.id, { ...toInput(other), sortOrder: f.sortOrder });
+      if (!a.ok || !b.ok) setBanner(await errorMessage(a.ok ? b : a, 'Could not reorder the fields.'));
       reload();
     } catch {
-      setBanner('Could not reorder.');
+      setBanner('Could not reorder the fields.');
     } finally {
       setBusyId(null);
     }
@@ -164,200 +192,247 @@ export default function CustomFieldsPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div>
-        <nav className="text-sm text-gray-400 mb-1">
-          <Link href="/admin/settings" className="hover:text-brand-orange">Settings</Link>
-          <span className="mx-1.5">/</span>
-          <span className="text-brand-gray">Custom Fields</span>
-        </nav>
-        <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Custom Fields</h1>
-        <p className="text-gray-500 mt-1">Your own fields on every shipment — fill them in per shipment, choose which ones clients can see.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <nav className="text-sm text-gray-400 mb-1">
+            <Link href="/admin/settings" className="hover:text-brand-orange">
+              Settings
+            </Link>
+            <span className="mx-1.5">/</span>
+            <span className="text-brand-gray">Reference Fields</span>
+          </nav>
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Reference Fields</h1>
+          <p className="text-gray-500 mt-1">
+            Extra fields on every shipment — reference numbers, internal notes. Choose which ones clients can see.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openNew}
+          className="px-4 py-2.5 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors"
+        >
+          + Add field
+        </button>
       </div>
 
       {banner && (
         <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm flex items-start justify-between gap-3">
           <span>{banner}</span>
-          <button onClick={() => setBanner(null)} className="text-amber-500 hover:text-amber-700" aria-label="Dismiss">✕</button>
+          <button onClick={() => setBanner(null)} className="text-amber-500 hover:text-amber-700" aria-label="Dismiss">
+            ✕
+          </button>
         </div>
       )}
 
       <div className="mt-6 rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <input
-              type="text"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
-              placeholder="New field name, e.g. Invoice No."
-              className="flex-1 min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-            />
-            <select
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as CustomFieldType)}
-              aria-label="Field type"
-              className="w-full sm:w-auto rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-            >
-              {CUSTOM_FIELD_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-            <label className="flex items-center gap-2 text-sm font-medium text-brand-dark whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={newVisible}
-                onChange={(e) => setNewVisible(e.target.checked)}
-                className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
-              />
-              Visible to client
-            </label>
+        {items === null ? (
+          <div className="py-16 flex justify-center">
+            <BrandLoader />
+          </div>
+        ) : items.length === 0 ? (
+          <div className="py-16 px-6 text-center">
+            <p className="text-brand-dark font-medium">No reference fields yet</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Add one and it will appear on every shipment for your team to fill in.
+            </p>
             <button
               type="button"
-              onClick={add}
-              disabled={adding}
-              className="px-4 py-2 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 whitespace-nowrap"
+              onClick={openNew}
+              className="mt-5 px-4 py-2 text-sm font-semibold text-brand-orange border border-brand-orange rounded-lg hover:bg-orange-50 transition-colors"
             >
-              {adding ? 'Adding…' : '+ Add field'}
+              + Add your first field
             </button>
           </div>
-        </div>
-
-        {items === null ? (
-          <div className="py-16 flex justify-center"><BrandLoader /></div>
-        ) : items.length === 0 ? (
-          <div className="py-16 text-center text-gray-400 text-sm">No custom fields yet — add the first one above.</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                 <th className="px-4 py-3 font-semibold">Order</th>
                 <th className="px-4 py-3 font-semibold">Field</th>
-                <th className="px-4 py-3 font-semibold">Type</th>
+                <th className="px-4 py-3 font-semibold hidden sm:table-cell">Type</th>
                 <th className="px-4 py-3 font-semibold">Client can see</th>
                 <th className="px-4 py-3 font-semibold">Active</th>
                 <th className="px-4 py-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((f, i) => {
-                const ed = editing && editing.id === f.id ? editing : null;
-                return (
-                  <Fragment key={f.id}>
-                  <tr className="border-b border-gray-50 last:border-b-0">
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => move(f, -1)}
-                          disabled={i === 0 || busyId === f.id}
-                          className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 hover:text-brand-dark disabled:opacity-30 disabled:hover:bg-transparent"
-                          aria-label="Move up"
-                        >↑</button>
-                        <button
-                          onClick={() => move(f, 1)}
-                          disabled={i === items.length - 1 || busyId === f.id}
-                          className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 hover:text-brand-dark disabled:opacity-30 disabled:hover:bg-transparent"
-                          aria-label="Move down"
-                        >↓</button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {ed ? (
-                        <input
-                          type="text"
-                          value={ed.draft.label}
-                          onChange={(e) => setEditing({ ...ed, draft: { ...ed.draft, label: e.target.value } })}
-                          className="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-                        />
-                      ) : (
-                        <>
-                          <span className="text-brand-dark font-medium">{f.label}</span>
-                          <span className="block text-[11px] text-gray-400 mt-1 font-mono">{f.key}</span>
-                        </>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      {ed ? (
-                        <select
-                          value={ed.draft.fieldType}
-                          onChange={(e) => setEditing({ ...ed, draft: { ...ed.draft, fieldType: e.target.value as CustomFieldType } })}
-                          aria-label="Field type"
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-                        >
-                          {CUSTOM_FIELD_TYPES.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-gray-500">{typeLabel(f.fieldType)}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      {ed ? (
-                        <input
-                          type="checkbox"
-                          checked={ed.draft.visibleToClient}
-                          onChange={(e) => setEditing({ ...ed, draft: { ...ed.draft, visibleToClient: e.target.checked } })}
-                          aria-label="Visible to client"
-                          className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
-                        />
-                      ) : f.visibleToClient ? (
-                        <span className="text-[10px] uppercase tracking-wide text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">Client can see</span>
-                      ) : (
-                        <span className="text-[10px] uppercase tracking-wide text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Admin only</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      {ed ? (
-                        <input
-                          type="checkbox"
-                          checked={ed.draft.isActive}
-                          onChange={(e) => setEditing({ ...ed, draft: { ...ed.draft, isActive: e.target.checked } })}
-                          aria-label="Active"
-                          className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
-                        />
-                      ) : f.isActive ? (
-                        <span className="text-[10px] uppercase tracking-wide text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">Active</span>
-                      ) : (
-                        <span className="text-[10px] uppercase tracking-wide text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Inactive</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
-                      {ed ? (
-                        <>
-                          <button onClick={save} disabled={saving} className="text-sm font-semibold text-brand-orange hover:text-brand-coral disabled:opacity-50">
-                            {saving ? 'Saving…' : 'Save'}
-                          </button>
-                          <button onClick={() => { setEditing(null); setEditError(null); }} disabled={saving} className="ml-4 text-sm font-semibold text-gray-400 hover:text-brand-dark disabled:opacity-50">
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => openEdit(f)} disabled={busyId === f.id} className="text-sm font-semibold text-brand-orange hover:text-brand-coral disabled:opacity-50">Edit</button>
-                          <button
-                            onClick={() => remove(f)}
-                            disabled={busyId === f.id}
-                            title="Delete"
-                            className="ml-4 text-sm font-semibold text-gray-400 hover:text-red-600 disabled:opacity-40 disabled:hover:text-gray-400 disabled:cursor-not-allowed"
-                          >Delete</button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                  {ed && editError && (
-                    <tr className="border-b border-gray-50 last:border-b-0">
-                      <td colSpan={6} className="px-4 pt-0 pb-4">
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{editError}</div>
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
-                );
-              })}
+              {items.map((f, i) => (
+                <tr key={f.id} className="border-b border-gray-50 last:border-b-0">
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => move(f, -1)}
+                        disabled={i === 0 || busyId === f.id}
+                        className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 hover:text-brand-dark disabled:opacity-30 disabled:hover:bg-transparent"
+                        aria-label="Move up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => move(f, 1)}
+                        disabled={i === items.length - 1 || busyId === f.id}
+                        className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 hover:text-brand-dark disabled:opacity-30 disabled:hover:bg-transparent"
+                        aria-label="Move down"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`font-medium ${f.isActive ? 'text-brand-dark' : 'text-gray-400'}`}>{f.label}</span>
+                    <span className="block sm:hidden text-[11px] text-gray-400 mt-0.5">{typeLabel(f.fieldType)}</span>
+                  </td>
+                  <td className="px-4 py-3 align-middle hidden sm:table-cell text-gray-600">{typeLabel(f.fieldType)}</td>
+                  <td className="px-4 py-3 align-middle">
+                    <Toggle
+                      on={f.visibleToClient}
+                      disabled={busyId === f.id}
+                      onChange={() => toggle(f, { visibleToClient: !f.visibleToClient })}
+                      label={f.visibleToClient ? 'Hide from clients' : 'Show to clients'}
+                    />
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    <Toggle
+                      on={f.isActive}
+                      disabled={busyId === f.id}
+                      onChange={() => toggle(f, { isActive: !f.isActive })}
+                      label={f.isActive ? 'Deactivate' : 'Activate'}
+                    />
+                  </td>
+                  <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
+                    <button
+                      onClick={() => openEdit(f)}
+                      className="text-sm font-semibold text-brand-orange hover:text-brand-coral"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => remove(f)}
+                      disabled={busyId === f.id}
+                      title="Delete — refused if any shipment already uses this field"
+                      className="ml-4 text-sm font-semibold text-gray-400 hover:text-red-600 disabled:opacity-40 disabled:hover:text-gray-400"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !saving && setEditing(null)} aria-hidden />
+          <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl p-6">
+            <h2 className="text-lg font-bold text-brand-dark">
+              {editing.id === null ? 'Add reference field' : 'Edit reference field'}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {editing.id === null
+                ? 'This appears on every shipment for your team to fill in.'
+                : 'Changes apply to this field on every shipment.'}
+            </p>
+
+            <label className="block mt-5 text-sm font-medium text-brand-dark">
+              Field name
+              <input
+                type="text"
+                autoFocus
+                value={editing.draft.label}
+                onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, label: e.target.value } })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') save();
+                }}
+                placeholder="e.g. Invoice No."
+                className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent"
+              />
+            </label>
+
+            <label className="block mt-4 text-sm font-medium text-brand-dark">
+              Type
+              <select
+                value={editing.draft.fieldType}
+                onChange={(e) =>
+                  setEditing({ ...editing, draft: { ...editing.draft, fieldType: e.target.value as CustomFieldType } })
+                }
+                className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent"
+              >
+                {CUSTOM_FIELD_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {editing.id !== null && (
+                <span className="block text-[11px] text-gray-400 mt-1 font-normal">
+                  Fixed once a shipment has a value for this field.
+                </span>
+              )}
+            </label>
+
+            <div className="mt-5 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-brand-dark">Visible to clients</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Shows on the client&apos;s own view of the shipment.</p>
+                </div>
+                <Toggle
+                  on={editing.draft.visibleToClient}
+                  onChange={() =>
+                    setEditing({
+                      ...editing,
+                      draft: { ...editing.draft, visibleToClient: !editing.draft.visibleToClient },
+                    })
+                  }
+                  label="Visible to clients"
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-brand-dark">Active</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Inactive fields drop off new shipments but keep values already recorded.
+                  </p>
+                </div>
+                <Toggle
+                  on={editing.draft.isActive}
+                  onChange={() =>
+                    setEditing({ ...editing, draft: { ...editing.draft, isActive: !editing.draft.isActive } })
+                  }
+                  label="Active"
+                />
+              </div>
+            </div>
+
+            {dialogError && (
+              <div className="mt-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">
+                {dialogError}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-semibold text-brand-gray hover:text-brand-dark disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                className="px-5 py-2 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
