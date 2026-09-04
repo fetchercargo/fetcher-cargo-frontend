@@ -392,11 +392,25 @@ export default function ShipmentForm({
         <Section title="Additional Information">
           {customFields.map((f) => (
             <Field key={f.id} label={f.label} full>
-              <input
-                className={inputCls}
-                value={cfValues[f.id] ?? ''}
-                onChange={(e) => setCfValues((v) => ({ ...v, [f.id]: e.target.value }))}
-              />
+              {f.fieldType === 'boolean' ? (
+                <select
+                  className={inputCls}
+                  value={cfValues[f.id] ?? ''}
+                  onChange={(e) => setCfValues((v) => ({ ...v, [f.id]: e.target.value }))}
+                >
+                  <option value="">—</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              ) : (
+                <input
+                  className={inputCls}
+                  type={f.fieldType === 'number' ? 'number' : 'text'}
+                  step={f.fieldType === 'number' ? 'any' : undefined}
+                  value={cfValues[f.id] ?? ''}
+                  onChange={(e) => setCfValues((v) => ({ ...v, [f.id]: e.target.value }))}
+                />
+              )}
               {f.visibleToClient && <p className="text-xs text-gray-400">Client can see this</p>}
             </Field>
           ))}

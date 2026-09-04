@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
-import { type CustomFieldValue } from '@/lib/customFields';
+import { type CustomFieldValue, formatCustomFieldValue } from '@/lib/customFields';
 
 interface TrackingUpdate {
   date: string;
@@ -259,7 +259,7 @@ export default function ShipmentDetailPage() {
         {data.customFields && data.customFields.length > 0 && (
           <Section title="Additional Information">
             {data.customFields.map((f) => (
-              <Row key={f.fieldId} label={f.label} value={f.value} />
+              <Row key={f.fieldId} label={f.label} value={formatCustomFieldValue(f.fieldType, f.value)} />
             ))}
           </Section>
         )}

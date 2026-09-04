@@ -70,12 +70,25 @@ export default function CustomFieldsSection({
               {!f.isActive && <span className="ml-1.5 text-xs font-normal text-gray-400">(inactive)</span>}
               {f.visibleToClient && <span className="ml-1.5 text-xs font-normal text-gray-400">Client can see this</span>}
             </span>
-            <input
-              type="text"
-              value={values[f.fieldId] ?? ''}
-              onChange={(e) => setValues((v) => ({ ...v, [f.fieldId]: e.target.value }))}
-              className={`${inputCls} mt-1`}
-            />
+            {f.fieldType === 'boolean' ? (
+              <select
+                value={values[f.fieldId] ?? ''}
+                onChange={(e) => setValues((v) => ({ ...v, [f.fieldId]: e.target.value }))}
+                className={`${inputCls} mt-1`}
+              >
+                <option value="">—</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            ) : (
+              <input
+                type={f.fieldType === 'number' ? 'number' : 'text'}
+                step={f.fieldType === 'number' ? 'any' : undefined}
+                value={values[f.fieldId] ?? ''}
+                onChange={(e) => setValues((v) => ({ ...v, [f.fieldId]: e.target.value }))}
+                className={`${inputCls} mt-1`}
+              />
+            )}
           </label>
         ))}
       </div>

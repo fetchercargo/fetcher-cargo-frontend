@@ -3,10 +3,13 @@
 // one then appears on every shipment for the admin to fill in. `visibleToClient`
 // decides whether a field's value reaches the client-facing detail endpoint.
 
+export type CustomFieldType = 'text' | 'number' | 'boolean';
+
 export interface CustomField {
   id: number;
   label: string;
   key: string;
+  fieldType: CustomFieldType;
   visibleToClient: boolean;
   isActive: boolean;
   sortOrder: number;
@@ -16,6 +19,7 @@ export interface CustomField {
 
 export interface CustomFieldInput {
   label: string;
+  fieldType: CustomFieldType;
   visibleToClient: boolean;
   isActive: boolean;
   sortOrder: number;
@@ -25,10 +29,27 @@ export interface CustomFieldValue {
   fieldId: number;
   label: string;
   key: string;
+  fieldType: CustomFieldType;
   visibleToClient: boolean;
   isActive: boolean;
   sortOrder: number;
   value: string;
+}
+
+export const CUSTOM_FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'number', label: 'Number' },
+  { value: 'boolean', label: 'Yes / No' },
+];
+
+// Formats a stored canonical value for display.
+export function formatCustomFieldValue(type: CustomFieldType, value: string): string {
+  if (type === 'boolean') {
+    if (value === '') return '—';
+    if (value === 'true') return 'Yes';
+    return 'No';
+  }
+  return value === '' ? '—' : value;
 }
 
 // ---- API ------------------------------------------------------------------

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
 import {
@@ -8,12 +8,18 @@ import {
   deleteCustomField,
   fetchCustomFields,
   updateCustomField,
+  CUSTOM_FIELD_TYPES,
   type CustomField,
   type CustomFieldInput,
+  type CustomFieldType,
 } from '@/lib/customFields';
 
 function toInput(f: CustomField): CustomFieldInput {
-  return { label: f.label, visibleToClient: f.visibleToClient, isActive: f.isActive, sortOrder: f.sortOrder };
+  return { label: f.label, fieldType: f.fieldType, visibleToClient: f.visibleToClient, isActive: f.isActive, sortOrder: f.sortOrder };
+}
+
+function typeLabel(t: CustomFieldType): string {
+  return CUSTOM_FIELD_TYPES.find((x) => x.value === t)?.label ?? t;
 }
 
 async function errorMessage(res: Response, fallback: string): Promise<string> {
@@ -33,8 +39,12 @@ export default function CustomFieldsPage() {
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [newLabel, setNewLabel] = useState('');
+  const [newType, setNewType] = useState<CustomFieldType>('text');
   const [newVisible, setNewVisible] = useState(false);
   const [adding, setAdding] = useState(false);
+  // Inline error for the row currently being edited (e.g. the type-locked
+  // message). The row stays in edit state so the admin can revert their change.
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -63,12 +73,13 @@ export default function CustomFieldsPage() {
     setAdding(true);
     setBanner(null);
     try {
-      const res = await createCustomField({ label, visibleToClient: newVisible, isActive: true, sortOrder: nextOrder });
+      const res = await createCustomField({ label, fieldType: newType, visibleToClient: newVisible, isActive: true, sortOrder: nextOrder });
       if (!res.ok) {
         setBanner(await errorMessage(res, 'Could not add the field.'));
         return;
       }
       setNewLabel('');
+      setNewType('text');
       setNewVisible(false);
       reload();
     } catch {
@@ -79,6 +90,7 @@ export default function CustomFieldsPage() {
   }
 
   function openEdit(f: CustomField) {
+    setEditError(null);
     setEditing({ id: f.id, draft: toInput(f) });
   }
 
@@ -90,16 +102,19 @@ export default function CustomFieldsPage() {
     }
     setSaving(true);
     setBanner(null);
+    setEditError(null);
     try {
       const res = await updateCustomField(editing.id, editing.draft);
       if (!res.ok) {
-        setBanner(await errorMessage(res, 'Could not save the field.'));
+        // Show the API's message on the row itself and keep editing, so the
+        // admin can revert whatever the server rejected (e.g. a type change).
+        setEditError(await errorMessage(res, 'Could not save the field.'));
         return;
       }
       setEditing(null);
       reload();
     } catch {
-      setBanner('Could not save the field.');
+      setEditError('Could not save the field.');
     } finally {
       setSaving(false);
     }
@@ -177,6 +192,16 @@ export default function CustomFieldsPage() {
               placeholder="New field name, e.g. Invoice No."
               className="flex-1 min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
             />
+            <select
+              value={newType}
+              onChange={(e) => setNewType(e.target.value as CustomFieldType)}
+              aria-label="Field type"
+              className="w-full sm:w-auto rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+            >
+              {CUSTOM_FIELD_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
             <label className="flex items-center gap-2 text-sm font-medium text-brand-dark whitespace-nowrap">
               <input
                 type="checkbox"
@@ -207,6 +232,7 @@ export default function CustomFieldsPage() {
               <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                 <th className="px-4 py-3 font-semibold">Order</th>
                 <th className="px-4 py-3 font-semibold">Field</th>
+                <th className="px-4 py-3 font-semibold">Type</th>
                 <th className="px-4 py-3 font-semibold">Client can see</th>
                 <th className="px-4 py-3 font-semibold">Active</th>
                 <th className="px-4 py-3 font-semibold text-right">Actions</th>
@@ -216,7 +242,8 @@ export default function CustomFieldsPage() {
               {items.map((f, i) => {
                 const ed = editing && editing.id === f.id ? editing : null;
                 return (
-                  <tr key={f.id} className="border-b border-gray-50 last:border-b-0">
+                  <Fragment key={f.id}>
+                  <tr className="border-b border-gray-50 last:border-b-0">
                     <td className="px-4 py-3 align-middle">
                       <div className="flex items-center gap-1">
                         <button
@@ -246,6 +273,22 @@ export default function CustomFieldsPage() {
                           <span className="text-brand-dark font-medium">{f.label}</span>
                           <span className="block text-[11px] text-gray-400 mt-1 font-mono">{f.key}</span>
                         </>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      {ed ? (
+                        <select
+                          value={ed.draft.fieldType}
+                          onChange={(e) => setEditing({ ...ed, draft: { ...ed.draft, fieldType: e.target.value as CustomFieldType } })}
+                          aria-label="Field type"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+                        >
+                          {CUSTOM_FIELD_TYPES.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-gray-500">{typeLabel(f.fieldType)}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 align-middle">
@@ -284,7 +327,7 @@ export default function CustomFieldsPage() {
                           <button onClick={save} disabled={saving} className="text-sm font-semibold text-brand-orange hover:text-brand-coral disabled:opacity-50">
                             {saving ? 'Saving…' : 'Save'}
                           </button>
-                          <button onClick={() => setEditing(null)} disabled={saving} className="ml-4 text-sm font-semibold text-gray-400 hover:text-brand-dark disabled:opacity-50">
+                          <button onClick={() => { setEditing(null); setEditError(null); }} disabled={saving} className="ml-4 text-sm font-semibold text-gray-400 hover:text-brand-dark disabled:opacity-50">
                             Cancel
                           </button>
                         </>
@@ -301,6 +344,14 @@ export default function CustomFieldsPage() {
                       )}
                     </td>
                   </tr>
+                  {ed && editError && (
+                    <tr className="border-b border-gray-50 last:border-b-0">
+                      <td colSpan={6} className="px-4 pt-0 pb-4">
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{editError}</div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
