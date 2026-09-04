@@ -129,7 +129,15 @@ export default function AdminShipmentsListPage() {
           </td>
         );
       case 'route':
-        return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{s.pickupCity || '—'} → {s.deliveryCity || '—'}</td>;
+        // City where we have it, pincode otherwise. City is only stored on
+        // shipments booked since migration 0015 and never on sheet rows, so
+        // showing city alone left ~3 in 4 rows blank that previously showed a
+        // pincode.
+        return (
+          <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">
+            {s.pickupCity || s.pickupPincode || '—'} → {s.deliveryCity || s.deliveryPincode || '—'}
+          </td>
+        );
       case 'mode':
         return <td key={key} className="px-4 py-3 whitespace-nowrap text-gray-600">{titleCase(s.mode)}</td>;
       case 'createdAt':
