@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ClientCombobox from '@/components/admin/ClientCombobox';
+import { type CustomField } from '@/lib/customFields';
 import { SCOPES, TYPES, MODES, CATEGORIES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
 import { fetchStatuses, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import { BrandDots } from '@/components/BrandLoader';
@@ -112,6 +113,7 @@ function LocationPicker({ locations, onPick, label }: { locations: ClientLocatio
 export default function ShipmentForm({
   mode,
   clients = [],
+  customFields = [],
   initial,
   submitting,
   error,
@@ -120,6 +122,9 @@ export default function ShipmentForm({
 }: {
   mode: 'create' | 'edit';
   clients?: ClientOption[];
+  // Admin-defined fields to collect at creation. Their values come back on the
+  // submit payload as customFieldValues; the caller saves them separately.
+  customFields?: CustomField[];
   initial?: Partial<ShipmentFormState>;
   submitting: boolean;
   error: string | null;
@@ -127,6 +132,9 @@ export default function ShipmentForm({
   onSubmit: (payload: Record<string, unknown>) => void;
 }) {
   const [form, setForm] = useState<ShipmentFormState>({ ...DEFAULTS, ...initial });
+  // Custom field values, keyed by field id. Kept out of ShipmentFormState because
+  // they are saved by a separate endpoint, not part of the shipment payload.
+  const [cfValues, setCfValues] = useState<Record<number, string>>({});
 
   function set<K extends keyof ShipmentFormState>(key: K, value: ShipmentFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -215,6 +223,7 @@ export default function ShipmentForm({
       isDg: form.isDg,
       additionalInfo: form.additionalInfo,
       customerRef: form.customerRef,
+      customFieldValues: cfValues,
     };
     if (mode === 'create') {
       onSubmit({ clientCode: form.clientCode, ...base });
@@ -376,6 +385,21 @@ export default function ShipmentForm({
           <Field label="Remarks" full>
             <textarea rows={2} className={inputCls} value={form.remarks} onChange={(e) => set('remarks', e.target.value)} />
           </Field>
+        </Section>
+      )}
+
+      {mode === 'create' && customFields.length > 0 && (
+        <Section title="Additional Information">
+          {customFields.map((f) => (
+            <Field key={f.id} label={f.label} full>
+              <input
+                className={inputCls}
+                value={cfValues[f.id] ?? ''}
+                onChange={(e) => setCfValues((v) => ({ ...v, [f.id]: e.target.value }))}
+              />
+              {f.visibleToClient && <p className="text-xs text-gray-400">Client can see this</p>}
+            </Field>
+          ))}
         </Section>
       )}
 

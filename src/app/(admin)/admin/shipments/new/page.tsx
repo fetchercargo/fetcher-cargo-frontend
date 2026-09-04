@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ShipmentForm from '@/components/admin/ShipmentForm';
 import type { ClientOption } from '@/lib/admin';
+import { fetchCustomFields, saveShipmentCustomFields, type CustomField } from '@/lib/customFields';
 
 export default function AdminNewShipmentPage() {
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ awb: string | null; id: number } | null>(null);
@@ -17,21 +19,40 @@ export default function AdminNewShipmentPage() {
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setClients(d as ClientOption[]))
       .catch(() => setClients([]));
+    // Only active fields are offered at creation; inactive ones are retired.
+    fetchCustomFields()
+      .then((list) => setCustomFields(list.filter((f) => f.isActive)))
+      .catch(() => setCustomFields([]));
   }, []);
 
   async function handleSubmit(payload: Record<string, unknown>) {
     setSubmitting(true);
     setError(null);
     try {
+      // customFieldValues rides along on the form payload but is not part of the
+      // shipment itself — strip it before POSTing rather than relying on the
+      // server ignoring unknown keys.
+      const { customFieldValues, ...shipment } = payload;
       const res = await fetch('/api/admin/shipments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(shipment),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || 'Could not create the shipment.');
         return;
+      }
+      // Custom field values are saved by their own endpoint once the shipment
+      // exists. If that call fails the shipment is still created, so say so
+      // rather than losing the values silently — they can be re-entered on the
+      // shipment itself.
+      const values = (customFieldValues ?? {}) as Record<number, string>;
+      if (data.id && Object.values(values).some((v) => v.trim() !== '')) {
+        const saved = await saveShipmentCustomFields(data.id, values).catch(() => null);
+        if (!saved || !saved.ok) {
+          setError('Shipment created, but the additional information could not be saved. Open the shipment to add it.');
+        }
       }
       setCreated({ awb: data.awb ?? null, id: data.id });
     } catch {
@@ -95,7 +116,7 @@ export default function AdminNewShipmentPage() {
         </div>
       </div>
       <div className="mt-6">
-        <ShipmentForm key={formKey} mode="create" clients={clients} submitting={submitting} error={error} submitLabel="Create shipment" onSubmit={handleSubmit} />
+        <ShipmentForm key={formKey} mode="create" clients={clients} customFields={customFields} submitting={submitting} error={error} submitLabel="Create shipment" onSubmit={handleSubmit} />
       </div>
     </div>
   );
