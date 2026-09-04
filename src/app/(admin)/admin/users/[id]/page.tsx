@@ -151,16 +151,21 @@ export default function AdminViewUserPage() {
               View shipments
             </Link>
           )}
-          <button
-            onClick={() => setDeactivateOpen(true)}
-            className={
-              u.isActive
-                ? 'px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors'
-                : 'px-4 py-2 text-sm font-semibold text-brand-gray border border-gray-200 rounded-lg hover:text-brand-dark hover:border-gray-300 transition-colors'
-            }
-          >
-            {u.isActive ? 'Deactivate' : 'Reactivate'}
-          </button>
+          {/* Admin accounts cannot be deactivated, so the button is hidden for
+              them. Reactivate still shows if an admin is somehow inactive, so
+              such an account can be recovered from the UI. */}
+          {(isClient || !u.isActive) && (
+            <button
+              onClick={() => setDeactivateOpen(true)}
+              className={
+                u.isActive
+                  ? 'px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors'
+                  : 'px-4 py-2 text-sm font-semibold text-brand-gray border border-gray-200 rounded-lg hover:text-brand-dark hover:border-gray-300 transition-colors'
+              }
+            >
+              {u.isActive ? 'Deactivate' : 'Reactivate'}
+            </button>
+          )}
           <button onClick={() => setResetOpen(true)} className="px-4 py-2 text-sm font-semibold text-brand-gray border border-gray-200 rounded-lg hover:text-brand-dark hover:border-gray-300 transition-colors">
             Reset password
           </button>
