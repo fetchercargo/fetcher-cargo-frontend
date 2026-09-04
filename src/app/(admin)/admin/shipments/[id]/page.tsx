@@ -131,11 +131,11 @@ export default function AdminEditShipmentPage() {
       </div>
 
       <div className="mt-4">
-        <TrackingEditor key={`trk-${data.updatedAt}`} initial={data.updates} saving={savingTrack} onSave={handleTracking} />
+        <CustomFieldsSection shipmentId={data.id} initial={data.customFields ?? []} />
       </div>
 
       <div className="mt-4">
-        <CustomFieldsSection shipmentId={data.id} initial={data.customFields ?? []} />
+        <TrackingEditor key={`trk-${data.updatedAt}`} initial={data.updates} saving={savingTrack} onSave={handleTracking} />
       </div>
     </div>
   );

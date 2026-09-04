@@ -46,7 +46,7 @@ export default function CustomFieldsSection({
   if (initial.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-        <h2 className="text-base font-semibold text-brand-dark">Custom Fields</h2>
+        <h2 className="text-base font-semibold text-brand-dark">Additional Information</h2>
         <p className="text-gray-400 text-sm mt-3">
           No custom fields yet — define them in{' '}
           <Link href="/admin/settings/fields" className="text-brand-orange hover:text-brand-coral font-medium">
@@ -60,7 +60,7 @@ export default function CustomFieldsSection({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-brand-dark">Custom Fields</h2>
+      <h2 className="text-base font-semibold text-brand-dark">Additional Information</h2>
 
       <div className="mt-4 space-y-4">
         {initial.map((f) => (
