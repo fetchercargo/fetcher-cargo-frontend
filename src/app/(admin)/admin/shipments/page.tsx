@@ -9,7 +9,7 @@ import ShipmentFilters, {
   buildShipmentQuery,
   type ShipmentFilterValues,
 } from '@/components/admin/ShipmentFilters';
-import ColumnPicker, { SHIPMENT_COLUMNS, DEFAULT_COLUMN_KEYS } from '@/components/admin/ColumnPicker';
+import ColumnPicker, { SHIPMENT_COLUMNS, DEFAULT_COLUMN_KEYS, type ShipmentColumn } from '@/components/admin/ColumnPicker';
 import { titleCase, formatDateTime, type AdminShipmentListItem, type ClientOption } from '@/lib/admin';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
@@ -37,7 +37,8 @@ export default function AdminShipmentsListPage() {
         const raw = window.localStorage.getItem('fc.admin.shipments.columns');
         const parsed: unknown = raw === null ? undefined : JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const valid = SHIPMENT_COLUMNS.filter((c) => parsed.includes(c.key)).map((c) => c.key);
+          const known = new Set(SHIPMENT_COLUMNS.map((c) => c.key));
+          const valid = parsed.filter((k): k is string => typeof k === 'string' && known.has(k));
           if (valid.length > 0) setColumns(valid);
         }
       } catch {
@@ -84,7 +85,11 @@ export default function AdminShipmentsListPage() {
     window.location.href = '/api/admin/shipments/export' + (qs ? `?${qs}` : '');
   }
 
-  const visibleColumns = SHIPMENT_COLUMNS.filter((c) => columns.includes(c.key));
+  // Order comes from the user's `columns` state, not the canonical list.
+  const columnByKey = new Map(SHIPMENT_COLUMNS.map((c) => [c.key, c]));
+  const visibleColumns = columns
+    .map((k) => columnByKey.get(k))
+    .filter((c): c is ShipmentColumn => c !== undefined);
 
   function renderCell(s: AdminShipmentListItem, key: string) {
     switch (key) {
