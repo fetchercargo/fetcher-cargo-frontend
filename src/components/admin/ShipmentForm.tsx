@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ClientCombobox from '@/components/admin/ClientCombobox';
 import { SCOPES, TYPES, MODES, CATEGORIES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
 import { fetchStatuses, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import { BrandDots } from '@/components/BrandLoader';
@@ -236,14 +237,12 @@ export default function ShipmentForm({
       {mode === 'create' && (
         <Section title="Client">
           <Field label="Book on behalf of" required full>
-            <select className={inputCls} value={form.clientCode} onChange={(e) => set('clientCode', e.target.value)} required>
-              <option value="">Select a client…</option>
-              {clients.map((c) => (
-                <option key={c.clientCode} value={c.clientCode}>
-                  {c.name} — {c.clientCode} ({c.email})
-                </option>
-              ))}
-            </select>
+            <ClientCombobox
+              clients={clients}
+              value={form.clientCode}
+              onChange={(code) => set('clientCode', code)}
+              required
+            />
             {clients.length === 0 && <p className="text-xs text-gray-400">No clients with a code yet. Create one under Users first.</p>}
           </Field>
         </Section>
