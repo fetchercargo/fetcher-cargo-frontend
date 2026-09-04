@@ -38,7 +38,13 @@ export default function AdminShipmentsListPage() {
         const parsed: unknown = raw === null ? undefined : JSON.parse(raw);
         if (Array.isArray(parsed)) {
           const known = new Set(SHIPMENT_COLUMNS.map((c) => c.key));
-          const valid = parsed.filter((k): k is string => typeof k === 'string' && known.has(k));
+          // Deduplicate as well as validate. A repeated key would render two
+          // columns sharing one React key in a list the arrows reorder, and
+          // unticking it removes every copy at once — which slips past the
+          // never-zero-columns guard and empties the table.
+          const valid = Array.from(
+            new Set(parsed.filter((k): k is string => typeof k === 'string' && known.has(k))),
+          );
           if (valid.length > 0) setColumns(valid);
         }
       } catch {
