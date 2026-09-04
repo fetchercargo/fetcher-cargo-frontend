@@ -12,6 +12,11 @@ const CARDS: SettingCard[] = [
     description: 'Add, rename, recolor, reorder, and activate shipment statuses used across bookings, the admin panel, and customer tracking.',
     href: '/admin/settings/statuses',
   },
+  {
+    title: 'Custom Fields',
+    description: 'Add your own fields to every shipment — reference numbers, internal notes. Choose which ones clients can see.',
+    href: '/admin/settings/fields',
+  },
 ];
 
 export default function AdminSettingsPage() {

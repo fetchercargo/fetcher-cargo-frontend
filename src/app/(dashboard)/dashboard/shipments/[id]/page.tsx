@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
+import { type CustomFieldValue } from '@/lib/customFields';
 
 interface TrackingUpdate {
   date: string;
@@ -55,6 +56,7 @@ interface ShipmentDetail {
   createdAt: string;
   updatedAt: string;
   updates: TrackingUpdate[];
+  customFields?: CustomFieldValue[];
 }
 
 function titleCase(s: string | null): string {
@@ -252,6 +254,15 @@ export default function ShipmentDetailPage() {
             <Row label="Additional Information" value={data.additionalInfo} />
           </div>
         </Section>
+
+        {/* Client-visible custom fields, already filtered by the API. */}
+        {data.customFields && data.customFields.length > 0 && (
+          <Section title="Additional Details">
+            {data.customFields.map((f) => (
+              <Row key={f.fieldId} label={f.label} value={f.value} />
+            ))}
+          </Section>
+        )}
 
         {/* Timeline */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">

@@ -6,9 +6,15 @@ import { useParams } from 'next/navigation';
 import ShipmentForm, { type ShipmentFormState } from '@/components/admin/ShipmentForm';
 import { emptyParcel } from '@/components/admin/ParcelRows';
 import TrackingEditor from '@/components/admin/TrackingEditor';
+import CustomFieldsSection from '@/components/admin/CustomFieldsSection';
 import { type ShipmentDetail, type TrackingUpdate } from '@/lib/admin';
+import { type CustomFieldValue } from '@/lib/customFields';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
+
+// ShipmentDetail lives in @/lib/admin; customFields rides along on the detail
+// payload, so the page widens the shared type locally.
+type DetailWithCustomFields = ShipmentDetail & { customFields?: CustomFieldValue[] };
 
 function detailToForm(d: ShipmentDetail): Partial<ShipmentFormState> {
   const s = (v: string | null) => v ?? '';
@@ -33,7 +39,7 @@ function detailToForm(d: ShipmentDetail): Partial<ShipmentFormState> {
 export default function AdminEditShipmentPage() {
   const params = useParams();
   const id = String(params.id);
-  const [data, setData] = useState<ShipmentDetail | null>(null);
+  const [data, setData] = useState<DetailWithCustomFields | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'notfound' | 'error'>('loading');
   const [saving, setSaving] = useState(false);
   const [savingTrack, setSavingTrack] = useState(false);
@@ -126,6 +132,10 @@ export default function AdminEditShipmentPage() {
 
       <div className="mt-4">
         <TrackingEditor key={`trk-${data.updatedAt}`} initial={data.updates} saving={savingTrack} onSave={handleTracking} />
+      </div>
+
+      <div className="mt-4">
+        <CustomFieldsSection shipmentId={data.id} initial={data.customFields ?? []} />
       </div>
     </div>
   );
