@@ -30,8 +30,10 @@ export default function AdminShipmentsListPage() {
   const columnsLoaded = useRef(false);
 
   useEffect(() => {
-    // Restore in a microtask (not synchronously in the effect body) so we
-    // don't trigger cascading renders; the first render stays on defaults.
+    // Deferred to a microtask only to satisfy the repo's
+    // react-hooks/set-state-in-effect lint rule, which flags a synchronous
+    // setState in an effect body. Behaviour is identical either way: effects
+    // run after commit, so the first paint is the defaults regardless.
     queueMicrotask(() => {
       try {
         const raw = window.localStorage.getItem('fc.admin.shipments.columns');
@@ -65,7 +67,9 @@ export default function AdminShipmentsListPage() {
   }, [columns]);
 
   useEffect(() => {
-    fetch('/api/admin/clients')
+    // ?all=1: this feeds a FILTER over historic shipments, so deactivated
+    // clients must stay selectable or their history becomes unfindable.
+    fetch('/api/admin/clients?all=1')
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setClients(d as ClientOption[]))
       .catch(() => {});

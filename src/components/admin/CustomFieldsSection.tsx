@@ -58,7 +58,11 @@ export function CustomFieldInputControl({
 }
 
 /** Label + flag chips, shared with the create form. */
-export function CustomFieldLabel({ field }: { field: CustomFieldValue }) {
+export function CustomFieldLabel({
+  field,
+}: {
+  field: Pick<CustomFieldValue, 'label' | 'visibleToClient' | 'isActive'>;
+}) {
   return (
     <span className="flex items-center gap-2 flex-wrap">
       <span className="text-sm font-medium text-brand-dark">{field.label}</span>

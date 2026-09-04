@@ -53,10 +53,24 @@ export default function ClientCombobox({
       immediate
     >
       <div className="relative">
+        {/* Native `required` on the visible input would only check that
+            SOMETHING was typed — a query with no match passes it. This hidden
+            input carries the actual selection, so the browser blocks submit
+            until a client is chosen, exactly as the <select> it replaced did. */}
+        {required && (
+          <input
+            tabIndex={-1}
+            aria-hidden="true"
+            required
+            value={value}
+            onChange={() => {}}
+            className="sr-only pointer-events-none"
+            style={{ position: 'absolute', bottom: 0, left: '50%', width: 1, height: 1, opacity: 0 }}
+          />
+        )}
         <ComboboxInput
           className={inputCls}
           placeholder={placeholder}
-          required={required}
           // Once chosen, show the full label; while typing, show the query.
           displayValue={(c: ClientOption | null) =>
             c ? `${c.name} — ${c.clientCode}` : ''

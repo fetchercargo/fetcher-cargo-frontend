@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
+import Toggle from '@/components/admin/Toggle';
 import {
   STATUS_COLORS,
   STATUS_KINDS,
@@ -208,14 +209,12 @@ export default function StatusConfigPage() {
                   </td>
                   <td className="px-4 py-3 align-middle hidden sm:table-cell text-gray-600">{KIND_LABEL[s.kind]}</td>
                   <td className="px-4 py-3 align-middle">
-                    <button
-                      onClick={() => toggleActive(s)}
+                    <Toggle
+                      on={s.isActive}
                       disabled={busyId === s.id}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${s.isActive ? 'bg-green-500' : 'bg-gray-300'}`}
-                      aria-label={s.isActive ? 'Deactivate' : 'Activate'}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${s.isActive ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </button>
+                      onChange={() => toggleActive(s)}
+                      label={s.isActive ? 'Deactivate' : 'Activate'}
+                    />
                   </td>
                   <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
                     <button onClick={() => openEdit(s)} className="text-sm font-semibold text-brand-orange hover:text-brand-coral">Edit</button>

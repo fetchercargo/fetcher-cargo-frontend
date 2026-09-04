@@ -224,7 +224,8 @@ export default function ShipmentForm({
       isDg: form.isDg,
       additionalInfo: form.additionalInfo,
       customerRef: form.customerRef,
-      customFieldValues: cfValues,
+      // Only the create flow collects these; edit saves them via its own section.
+      ...(mode === 'create' ? { customFieldValues: cfValues } : {}),
     };
     if (mode === 'create') {
       onSubmit({ clientCode: form.clientCode, ...base });
@@ -396,18 +397,7 @@ export default function ShipmentForm({
             // same label + control as the shipment page so a field looks identical
             // whether it is filled in at booking or afterwards.
             <div key={f.id} className="flex flex-col gap-1.5">
-              <CustomFieldLabel
-                field={{
-                  fieldId: f.id,
-                  label: f.label,
-                  key: f.key,
-                  fieldType: f.fieldType,
-                  visibleToClient: f.visibleToClient,
-                  isActive: f.isActive,
-                  sortOrder: f.sortOrder,
-                  value: '',
-                }}
-              />
+              <CustomFieldLabel field={f} />
               <CustomFieldInputControl
                 field={{ fieldId: f.id, fieldType: f.fieldType }}
                 value={cfValues[f.id] ?? ''}

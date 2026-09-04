@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
+import Toggle from '@/components/admin/Toggle';
 import {
   createCustomField,
   deleteCustomField,
@@ -41,44 +42,12 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   }
 }
 
-/** Toggle switch, matching the Active control on the Status Config screen. */
-function Toggle({
-  on,
-  onChange,
-  disabled,
-  label,
-}: {
-  on: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      disabled={disabled}
-      aria-label={label}
-      aria-pressed={on}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
-        on ? 'bg-green-500' : 'bg-gray-300'
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-          on ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
-      />
-    </button>
-  );
-}
-
 export default function ReferenceFieldsPage() {
   const [items, setItems] = useState<CustomField[] | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   // id === null means "adding", matching the Status Config dialog.
-  const [editing, setEditing] = useState<{ id: number | null; draft: CustomFieldInput; key?: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: number | null; draft: CustomFieldInput } | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -108,7 +77,7 @@ export default function ReferenceFieldsPage() {
 
   function openEdit(f: CustomField) {
     setDialogError(null);
-    setEditing({ id: f.id, draft: toInput(f), key: f.key });
+    setEditing({ id: f.id, draft: toInput(f) });
   }
 
   async function save() {

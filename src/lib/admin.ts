@@ -1,5 +1,7 @@
 // Shared types + helpers for the admin panel (mirrors the Go admin DTOs).
 
+import type { CustomFieldValue } from '@/lib/customFields';
+
 export interface AdminShipmentListItem {
   id: number;
   awb: string | null;
@@ -37,6 +39,7 @@ export interface ClientOption {
   clientCode: string;
   name: string;
   email: string;
+  isActive: boolean;
 }
 
 export interface TrackingUpdate {
@@ -94,6 +97,7 @@ export interface ShipmentDetail {
   createdAt: string;
   updatedAt: string;
   updates: TrackingUpdate[];
+  customFields: CustomFieldValue[];
 }
 
 export interface AdminUser {

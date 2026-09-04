@@ -7,9 +7,10 @@ export interface ShipmentColumn {
   label: string;
 }
 
-// Canonical, ordered list of columns available on the admin shipments table.
-// This order — not the order boxes are ticked — decides the table layout, so the
-// eight defaults come first, in the exact sequence they should render.
+// Canonical list of columns available on the admin shipments table. This
+// order is the DEFAULT layout and the order unselected columns are listed in
+// the picker; once a user reorders with the arrows, their saved order wins
+// (see visibleColumns on the shipments page).
 export const SHIPMENT_COLUMNS: ShipmentColumn[] = [
   // Defaults.
   { key: 'awb', label: 'AWB' },
