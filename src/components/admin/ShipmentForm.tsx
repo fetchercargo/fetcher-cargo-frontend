@@ -134,6 +134,10 @@ export default function ShipmentForm({
   onSubmit: (payload: Record<string, unknown>) => void;
 }) {
   const [form, setForm] = useState<ShipmentFormState>({ ...DEFAULTS, ...initial });
+
+  // Locked on whether the shipment ALREADY had an AWB when the form loaded, not on
+  // the current input — otherwise typing one in would lock the field mid-edit.
+  const awbLocked = mode === 'edit' && !!initial?.awb?.trim();
   // Custom field values, keyed by field id. Kept out of ShipmentFormState because
   // they are saved by a separate endpoint, not part of the shipment payload.
   const [cfValues, setCfValues] = useState<Record<number, string>>({});
@@ -287,8 +291,23 @@ export default function ShipmentForm({
           <input className={inputCls} value={form.customerRef} onChange={(e) => set('customerRef', e.target.value)} placeholder="PO / order no." />
         </Field>
         <Field label="AWB">
-          <input className={inputCls} value={form.awb} onChange={(e) => set('awb', e.target.value)} />
-          <p className="text-xs text-gray-400">Leave blank to generate one automatically.</p>
+          {/* Write-once. A shipment that already has an AWB keeps it: changing one
+              silently breaks tracking for anyone holding the old number, and a sheet
+              sync still carrying it creates a second, ownerless shipment. The server
+              enforces this too — this only spares the admin typing into a field that
+              would be rejected. Assigning one where there is none stays open, which
+              is how ops fill in a carrier number on a sheet-booked shipment. */}
+          <input
+            className={`${inputCls} ${awbLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+            value={form.awb}
+            readOnly={awbLocked}
+            onChange={(e) => !awbLocked && set('awb', e.target.value)}
+          />
+          <p className="text-xs text-gray-400">
+            {awbLocked
+              ? 'The AWB cannot be changed once a shipment has one. Cancel and rebook if it is wrong.'
+              : 'Leave blank to generate one automatically.'}
+          </p>
         </Field>
         <label className="flex items-center gap-2.5 sm:col-span-2 mt-1">
           <input type="checkbox" checked={form.isDg} onChange={(e) => set('isDg', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
