@@ -13,6 +13,11 @@ const CARDS: SettingCard[] = [
     href: '/admin/settings/statuses',
   },
   {
+    title: 'Pickup Statuses',
+    description: 'The statuses a pickup request moves through while ops schedule and run the collection.',
+    href: '/admin/settings/pickup-statuses',
+  },
+  {
     title: 'Reference Fields',
     description: 'Extra fields on every shipment — reference numbers, internal notes. Choose which ones clients can see.',
     href: '/admin/settings/fields',

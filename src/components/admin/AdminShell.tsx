@@ -36,6 +36,15 @@ const CreateIcon: FC = () => (
     <path d="M12 8v8M8 12h8" />
   </Icon>
 );
+const PickupIcon: FC = () => (
+  <Icon>
+    <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+    <path d="M15 18H9" />
+    <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35a1 1 0 0 0-.78-.38H14" />
+    <circle cx="17" cy="18" r="2" />
+    <circle cx="7" cy="18" r="2" />
+  </Icon>
+);
 const UsersIcon: FC = () => (
   <Icon>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -74,6 +83,7 @@ interface AdminNavItem {
 const ADMIN_NAV: AdminNavItem[] = [
   { label: 'Overview', href: '/admin', icon: OverviewIcon, match: (p) => p === '/admin' },
   { label: 'Shipments', href: '/admin/shipments', icon: ShipmentsIcon, match: (p) => p.startsWith('/admin/shipments') && p !== '/admin/shipments/new' },
+  { label: 'Pickup Requests', href: '/admin/pickup-requests', icon: PickupIcon, match: (p) => p.startsWith('/admin/pickup-requests') },
   { label: 'Create Shipment', href: '/admin/shipments/new', icon: CreateIcon, match: (p) => p === '/admin/shipments/new' },
   { label: 'Users', href: '/admin/users', icon: UsersIcon, match: (p) => p.startsWith('/admin/users') },
   { label: 'Pincodes', href: '/admin/pincodes', icon: PincodeIcon, match: (p) => p.startsWith('/admin/pincodes') },
