@@ -40,8 +40,9 @@ export interface ShipmentFormState {
   isDg: boolean;
   additionalInfo: string;
   customerRef: string;
-  // ops (edit only)
+  // Optional custom AWB — blank at creation means the server generates an FCB one.
   awb: string;
+  // ops (edit only)
   status: string;
   batchNo: string;
   chargeableWeight: string;
@@ -228,7 +229,9 @@ export default function ShipmentForm({
       ...(mode === 'create' ? { customFieldValues: cfValues } : {}),
     };
     if (mode === 'create') {
-      onSubmit({ clientCode: form.clientCode, ...base });
+      // awb rides on the create payload too: blank means the server generates
+      // an FCB number; a filled-in value is the admin's custom AWB.
+      onSubmit({ clientCode: form.clientCode, awb: form.awb, ...base });
       return;
     }
     onSubmit({
@@ -282,6 +285,10 @@ export default function ShipmentForm({
         </Field>
         <Field label="Customer Reference">
           <input className={inputCls} value={form.customerRef} onChange={(e) => set('customerRef', e.target.value)} placeholder="PO / order no." />
+        </Field>
+        <Field label="AWB">
+          <input className={inputCls} value={form.awb} onChange={(e) => set('awb', e.target.value)} />
+          <p className="text-xs text-gray-400">Leave blank to generate one automatically.</p>
         </Field>
         <label className="flex items-center gap-2.5 sm:col-span-2 mt-1">
           <input type="checkbox" checked={form.isDg} onChange={(e) => set('isDg', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
@@ -362,9 +369,6 @@ export default function ShipmentForm({
 
       {mode === 'edit' && (
         <Section title="Commercial & Ops">
-          <Field label="AWB">
-            <input className={inputCls} value={form.awb} onChange={(e) => set('awb', e.target.value)} />
-          </Field>
           <Field label="Status" required>
             <select className={inputCls} value={form.status} onChange={(e) => set('status', e.target.value)}>
               {statusList
