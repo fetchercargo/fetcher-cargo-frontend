@@ -17,7 +17,9 @@ import {
   type BulkValidateResponse,
   type ColumnDef,
   type DgValue,
+  type FieldError,
   type ParcelInput,
+  type RowValidation,
   type ShipmentInput,
   type ShipmentSummary,
 } from '@/lib/bulk';
@@ -30,6 +32,14 @@ const EMPTY_ALLOWED: AllowedValues = { scopes: [], types: [], modes: [], categor
 interface GridRow {
   rowNumber: number;
   input: ShipmentInput;
+  // Admin mode only: the row's custom AWB. It lives beside input (never on it —
+  // ShipmentInput mirrors the client-safe CreateShipmentInput) and is submitted
+  // as the index-aligned awbs array on the admin create.
+  awb: string;
+  // AWB verdicts only the server can make (duplicate within the file, AWB
+  // already used by a shipment). Carried until the admin edits the cell; create
+  // re-checks them server-side anyway.
+  awbErrors: FieldError[];
   dg: DgValue;
   errors: { field: string; message: string }[];
 }
@@ -83,16 +93,29 @@ export default function BulkReviewGrid({
   clients?: ClientOption[];
 }) {
   const allowed = response.allowedValues ?? EMPTY_ALLOWED;
+  // The clients prop is the admin-mode signal (only the admin bulk page passes
+  // it): it shows the client picker, and it shows the AWB column.
+  const admin = !!clients;
+
+  // rowErrors recomputes the client-checkable rules and layers the carried
+  // server AWB verdicts on top (see GridRow.awbErrors).
+  function rowErrors(input: ShipmentInput, dg: DgValue, awb: string, awbErrors: FieldError[]) {
+    return computeRowErrors(input, dg, allowed, admin ? awb : undefined).concat(awbErrors);
+  }
 
   const [rows, setRows] = useState<GridRow[]>(() =>
     response.rows.map((rv) => {
       const dg = dgFromRow(rv);
       const input = withParcels({ ...rv.input }, seedParcels(rv.input));
+      const awbErrors = (rv.errors ?? []).filter((e) => e.field === 'awb');
+      const awb = rv.awb ?? '';
       return {
         rowNumber: rv.rowNumber,
         input,
+        awb,
+        awbErrors,
         dg,
-        errors: computeRowErrors(input, dg, allowed),
+        errors: rowErrors(input, dg, awb, awbErrors),
       };
     }),
   );
@@ -167,7 +190,7 @@ export default function BulkReviewGrid({
       prev.map((r) => {
         if (r.rowNumber !== rowNumber) return r;
         const input = { ...r.input, [key]: value } as ShipmentInput;
-        return { ...r, input, errors: computeRowErrors(input, r.dg, allowed) };
+        return { ...r, input, errors: rowErrors(input, r.dg, r.awb, r.awbErrors) };
       }),
     );
   }
@@ -177,7 +200,7 @@ export default function BulkReviewGrid({
       prev.map((r) => {
         if (r.rowNumber !== rowNumber) return r;
         const input = { ...r.input, isDg: dg === 'Yes' };
-        return { ...r, dg, input, errors: computeRowErrors(input, dg, allowed) };
+        return { ...r, dg, input, errors: rowErrors(input, dg, r.awb, r.awbErrors) };
       }),
     );
   }
@@ -187,7 +210,19 @@ export default function BulkReviewGrid({
       prev.map((r) => {
         if (r.rowNumber !== rowNumber) return r;
         const input = withParcels(r.input, parcels);
-        return { ...r, input, errors: computeRowErrors(input, r.dg, allowed) };
+        return { ...r, input, errors: rowErrors(input, r.dg, r.awb, r.awbErrors) };
+      }),
+    );
+  }
+
+  // Editing the AWB cell drops the carried server verdicts for it (they were
+  // about the old value); the local length rule is recomputed immediately and
+  // create re-checks everything server-side.
+  function setAwb(rowNumber: number, awb: string) {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.rowNumber !== rowNumber) return r;
+        return { ...r, awb, awbErrors: [], errors: rowErrors(r.input, r.dg, awb, []) };
       }),
     );
   }
@@ -207,10 +242,15 @@ export default function BulkReviewGrid({
     setBanner(null);
     try {
       const payloadRows = rows.map((r) => r.input);
+      // Admin payload: awbs travels beside the rows, index-aligned (blank = let
+      // the server generate an FCB number). The client payload never carries it.
+      const body = admin
+        ? { clientCode, rows: payloadRows, awbs: rows.map((r) => r.awb) }
+        : { rows: payloadRows };
       const res = await fetch(createUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clients ? { clientCode, rows: payloadRows } : { rows: payloadRows }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 201) {
@@ -218,8 +258,20 @@ export default function BulkReviewGrid({
         return;
       }
       if (res.status === 422 && Array.isArray(data.rows)) {
-        // Drift guard: re-run the client checks (same rules) and surface them.
-        setRows((prev) => prev.map((r) => ({ ...r, errors: computeRowErrors(r.input, r.dg, allowed) })));
+        // Drift guard: re-run the client checks (same rules) and layer whatever
+        // server-only AWB verdicts came back (keyed by submission position —
+        // the response's rowNumber counts the submitted slice, not the sheet).
+        const byPos = new Map<number, RowValidation>();
+        for (const rv of data.rows as RowValidation[]) byPos.set(rv.rowNumber, rv);
+        setRows((prev) =>
+          prev.map((r, i) => {
+            const srv = byPos.get(i + 1);
+            if (!srv) return { ...r, errors: rowErrors(r.input, r.dg, r.awb, r.awbErrors) };
+            const awbErrors = (srv.errors ?? []).filter((e) => e.field === 'awb');
+            const awb = srv.awb ?? r.awb;
+            return { ...r, awb, awbErrors, errors: rowErrors(r.input, r.dg, awb, awbErrors) };
+          }),
+        );
         setErrorsOnly(true);
         setPage(0);
         setBanner(data.error || 'Some rows still need fixing.');
@@ -342,7 +394,7 @@ export default function BulkReviewGrid({
     );
   }
 
-  const colCount = SLOTS.length + 2; // # + REF + slots
+  const colCount = SLOTS.length + 2 + (admin ? 1 : 0); // # + AWB(admin) + REF + slots
 
   return (
     <div>
@@ -412,7 +464,13 @@ export default function BulkReviewGrid({
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
                 <th className="sticky left-0 z-20 bg-gray-50 w-14 px-3 py-2 font-medium border-b border-gray-200">#</th>
-                <th className="sticky left-14 z-20 bg-gray-50 px-2 py-2 font-medium border-b border-r border-gray-200">REF</th>
+                {/* Admin mode: the optional AWB column, first — matching the admin
+                    template, where AWB leads before REF. Sticky with a fixed width
+                    so REF's sticky offset can key off it. */}
+                {admin && (
+                  <th className="sticky left-14 z-20 bg-gray-50 w-[130px] px-2 py-2 font-medium border-b border-r border-gray-200">AWB</th>
+                )}
+                <th className={`sticky ${admin ? 'left-[186px]' : 'left-14'} z-20 bg-gray-50 px-2 py-2 font-medium border-b border-r border-gray-200`}>REF</th>
                 {SLOTS.map((slot, i) =>
                   slot.kind === 'parcels' ? (
                     <th key={`parcels-${i}`} className="px-2 py-2 font-medium border-b border-gray-200 min-w-[200px]">
@@ -439,8 +497,10 @@ export default function BulkReviewGrid({
                   <ReviewRow
                     key={row.rowNumber}
                     row={row}
+                    admin={admin}
                     open={expanded.has(row.rowNumber)}
                     colCount={colCount}
+                    onAwbChange={(v) => setAwb(row.rowNumber, v)}
                     onRefChange={(v) => setField(row.rowNumber, 'customerRef', v)}
                     onParcelsChange={(p) => setParcels(row.rowNumber, p)}
                     renderCell={renderCell}
@@ -490,27 +550,47 @@ export default function BulkReviewGrid({
 // in a full-width sub-row beneath it.
 function ReviewRow({
   row,
+  admin,
   open,
   colCount,
+  onAwbChange,
   onRefChange,
   onParcelsChange,
   renderCell,
   renderParcelsCell,
 }: {
   row: GridRow;
+  admin: boolean;
   open: boolean;
   colCount: number;
+  onAwbChange: (v: string) => void;
   onRefChange: (v: string) => void;
   onParcelsChange: (parcels: ParcelInput[]) => void;
   renderCell: (row: GridRow, col: ColumnDef) => ReactNode;
   renderParcelsCell: (row: GridRow) => ReactNode;
 }) {
   const rowBg = row.errors.length > 0 ? 'bg-red-50/30' : '';
+  // Highlighted like any other invalid cell when the row carries an awb error
+  // (length from the local mirror, duplicate/already-used from the server).
+  const awbErrMsg = row.errors.find((e) => e.field === 'awb')?.message;
   return (
     <>
       <tr className={rowBg}>
         <td className="sticky left-0 z-10 bg-white w-14 px-3 py-1.5 border-b border-gray-100 text-gray-400">{row.rowNumber}</td>
-        <td className="sticky left-14 z-10 bg-white px-2 py-1.5 border-b border-r border-gray-100">
+        {admin && (
+          <td className="sticky left-14 z-10 bg-white w-[130px] px-2 py-1.5 border-b border-r border-gray-100">
+            <input
+              value={row.awb}
+              onChange={(e) => onAwbChange(e.target.value)}
+              title={awbErrMsg}
+              placeholder="Auto"
+              className={`w-full px-2 py-1.5 text-sm rounded border focus:outline-none focus:ring-2 focus:ring-brand-orange/40 ${
+                awbErrMsg ? 'border-red-400 bg-red-50 text-red-900' : 'border-gray-200'
+              }`}
+            />
+          </td>
+        )}
+        <td className={`sticky ${admin ? 'left-[186px]' : 'left-14'} z-10 bg-white px-2 py-1.5 border-b border-r border-gray-100`}>
           <input
             value={String(row.input.customerRef ?? '')}
             onChange={(e) => onRefChange(e.target.value)}

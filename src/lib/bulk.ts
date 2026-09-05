@@ -12,6 +12,10 @@ import { isValidIndianState } from './states';
 // a single AWB with twenty differently sized boxes is ordinary.
 export const MAX_PARCELS = 500;
 
+// MAX_AWB_LENGTH mirrors the backend's AWB cap (the shipments.awb VARCHAR(50)
+// column). Admin-only — clients cannot set AWBs at all; see RowValidation.awb.
+export const MAX_AWB_LENGTH = 50;
+
 // ParcelInput is one parcel in a booking payload (mirrors Go model.ParcelInput).
 export interface ParcelInput {
   noOfPieces: number;
@@ -59,9 +63,15 @@ export interface FieldError {
   message: string;
 }
 
+// RowValidation mirrors Go model.RowValidation. awb is the admin-only custom
+// AWB echoed back by the validate endpoint (canonicalised; always empty for
+// client callers, whose AWB column is ignored). It rides BESIDE input, never on
+// it — ShipmentInput mirrors CreateShipmentInput, which must not grow an AWB
+// field: the bulk create payload sends awbs as a parallel, index-aligned array.
 export interface RowValidation {
   rowNumber: number;
   input: ShipmentInput;
+  awb: string;
   errors: FieldError[];
 }
 
@@ -248,11 +258,18 @@ export function emptyParcel(): ParcelInput {
 }
 
 // computeRowErrors is the full per-row check used by the grid: all field rules
-// plus DG (which must be explicitly Yes/No once flagged).
-export function computeRowErrors(input: ShipmentInput, dg: DgValue, allowed: AllowedValues): FieldError[] {
+// plus DG (which must be explicitly Yes/No once flagged). The optional awb is
+// passed only by the ADMIN grid: the length cap is the one AWB rule checkable
+// without the server — duplicates within the file and AWBs already used by a
+// shipment need the database, so those verdicts arrive from the server and are
+// carried alongside the row (never recomputed here).
+export function computeRowErrors(input: ShipmentInput, dg: DgValue, allowed: AllowedValues, awb?: string): FieldError[] {
   const errs = validateRow(input, allowed);
   if (dg !== 'Yes' && dg !== 'No') {
     errs.push({ field: 'isDg', message: 'DG must be Yes or No' });
+  }
+  if (awb !== undefined && String(awb).trim().length > MAX_AWB_LENGTH) {
+    errs.push({ field: 'awb', message: `AWB must be at most ${MAX_AWB_LENGTH} characters` });
   }
   return errs;
 }
