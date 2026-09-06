@@ -11,6 +11,7 @@ import {
   pickupFileUrl,
   setPickupRequestStatus,
   type PickupRequest,
+  type PickupRequestFile,
   type PickupStatus,
 } from '@/lib/pickup';
 import BrandLoader from '@/components/BrandLoader';
@@ -24,6 +25,31 @@ function FileIcon() {
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6" />
     </svg>
+  );
+}
+
+// One attachment tile, used wherever a photo renders: opens the streamed
+// bytes (Drive or held Postgres) in a new tab.
+function FileTile({ requestId, file }: { requestId: number; file: PickupRequestFile }) {
+  return (
+    <a
+      href={pickupFileUrl(requestId, file.id)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`${file.fileName} (${formatBytes(file.sizeBytes)})`}
+      className="group block rounded-lg border border-gray-200 overflow-hidden hover:border-brand-orange transition-colors"
+    >
+      {file.mimeType.startsWith('image/') ? (
+        // eslint-disable-next-line @next/next/no-img-element -- streams from the API behind the session cookie, which the next/image optimizer cannot forward
+        <img src={pickupFileUrl(requestId, file.id)} alt={file.fileName} className="w-full aspect-square object-cover" />
+      ) : (
+        <span className="w-full aspect-square bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400">
+          <FileIcon />
+          <span className="text-[10px] font-semibold uppercase tracking-wide">PDF</span>
+        </span>
+      )}
+      <span className="block px-2 py-1.5 text-[11px] text-gray-500 truncate">{file.fileName}</span>
+    </a>
   );
 }
 
@@ -210,49 +236,57 @@ export default function AdminPickupRequestDetailPage() {
         </div>
       </section>
 
-      <section className="mt-4 bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-sm font-semibold text-brand-dark">AWB numbers</h2>
+      <section className="mt-4 mb-8 bg-white rounded-xl border border-gray-200 p-5">
+        <h2 className="text-sm font-semibold text-brand-dark">AWBs &amp; images</h2>
+        <p className="text-xs text-gray-400 mt-1">
+          Photos are optional per shipment — an AWB showing no image is a box to chase.
+        </p>
         {data.awbs.length === 0 ? (
           <p className="text-sm text-gray-400 mt-3">No AWBs recorded.</p>
         ) : (
-          <ol className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-            {[...data.awbs].sort((a, b) => a.sortOrder - b.sortOrder).map((a) => (
-              <li key={a.sortOrder} className="text-sm font-mono text-brand-dark">
-                <span className="text-gray-400 mr-2">{a.sortOrder}.</span>
-                {a.awb}
-              </li>
-            ))}
-          </ol>
+          <div className="mt-3 flex flex-col gap-3">
+            {[...data.awbs].sort((a, b) => a.sortOrder - b.sortOrder).map((a) => {
+              const mine = data.files.filter((f) => f.awbId !== null && f.awbId === a.id);
+              return (
+                <div key={a.sortOrder} className="border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-mono text-brand-dark">
+                      <span className="text-gray-400 mr-2">{a.sortOrder}.</span>
+                      {a.awb}
+                    </span>
+                    <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                      {mine.length} photo{mine.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {mine.length > 0 ? (
+                    <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                      {mine.map((f) => <FileTile key={f.id} requestId={data.id} file={f} />)}
+                    </div>
+                  ) : (
+                    // The visibly EMPTY state is the useful information: photos
+                    // are optional, so the gap is what ops act on.
+                    <p className="mt-2 inline-block text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                      No image attached
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
-      </section>
-
-      <section className="mt-4 mb-8 bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-sm font-semibold text-brand-dark">AWB images</h2>
-        {data.files.length === 0 ? (
-          <p className="text-sm text-gray-400 mt-3">No images attached.</p>
-        ) : (
-          <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-            {data.files.map((f) => (
-              <a
-                key={f.id}
-                href={pickupFileUrl(data.id, f.id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={`${f.fileName} (${formatBytes(f.sizeBytes)})`}
-                className="group block rounded-lg border border-gray-200 overflow-hidden hover:border-brand-orange transition-colors"
-              >
-                {f.mimeType.startsWith('image/') ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- streams from the API behind the session cookie, which the next/image optimizer cannot forward
-                  <img src={pickupFileUrl(data.id, f.id)} alt={f.fileName} className="w-full aspect-square object-cover" />
-                ) : (
-                  <span className="w-full aspect-square bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400">
-                    <FileIcon />
-                    <span className="text-[10px] font-semibold uppercase tracking-wide">PDF</span>
-                  </span>
-                )}
-                <span className="block px-2 py-1.5 text-[11px] text-gray-500 truncate">{f.fileName}</span>
-              </a>
-            ))}
+        {/* Attachments that belong to the request rather than a box: rows from
+            before the per-AWB change, or the bare-files compatibility field.
+            Rendered apart from the boxes because they belong to none of them. */}
+        {data.files.some((f) => f.awbId === null) && (
+          <div className="mt-3 border border-dashed border-gray-300 rounded-lg p-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Attached without an AWB
+            </span>
+            <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+              {data.files.filter((f) => f.awbId === null).map((f) => (
+                <FileTile key={f.id} requestId={data.id} file={f} />
+              ))}
+            </div>
           </div>
         )}
       </section>

@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BrandDots } from '@/components/BrandLoader';
 import StateSelect from '@/components/StateSelect';
 import {
   MAX_PICKUP_FILES,
+  MAX_PICKUP_FILES_PER_AWB,
   MAX_PICKUP_FILE_BYTES,
   PICKUP_FILE_MIMES,
   fetchPickupLocations,
@@ -81,9 +82,11 @@ export default function PickupRequestForm() {
   const [countStr, setCountStr] = useState('1');
   const [awbs, setAwbs] = useState<string[]>(['']);
 
-  const [files, setFiles] = useState<ChosenFile[]>([]);
+  // Photos per AWB, parallel to awbs: row i carries AWB i's images. An image
+  // is proof for ONE box, so the picker lives on the AWB row, and a row may
+  // legitimately stay empty — photos are optional per AWB.
+  const [awbFiles, setAwbFiles] = useState<ChosenFile[][]>([[]]);
   const [fileNote, setFileNote] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const [readyDate, setReadyDate] = useState('');
   const [readyTime, setReadyTime] = useState('');
@@ -152,39 +155,62 @@ export default function PickupRequestForm() {
   function handleCount(v: string) {
     setCountStr(v);
     const n = Math.min(MAX_AWBS, Math.max(1, parseInt(v, 10) || 1));
-    // Slice/extend in place so typed AWBs survive a change in either direction.
+    // Slice/extend in place so typed AWBs — and the photos attached to them —
+    // survive a change in either direction: lowering the count and raising it
+    // again restores both, exactly like the numbers themselves.
     setAwbs((prev) => {
       const next = prev.slice(0, n);
       while (next.length < n) next.push('');
       return next;
     });
+    setAwbFiles((prev) => {
+      const next = prev.slice(0, n);
+      while (next.length < n) next.push([]);
+      return next;
+    });
   }
 
-  function addFiles(list: FileList | null) {
+  // Adds photos to ONE AWB's row, enforcing every cap locally so the server
+  // never has to refuse what the form could have caught: type and size per
+  // file, the per-AWB cap, and the per-request cap across all rows. Every
+  // rejection names the AWB it belongs to, because the controls are per box.
+  function addFiles(awbIdx: number, list: FileList | null) {
     if (!list) return;
+    const label = `AWB ${awbIdx + 1}${awbs[awbIdx] && awbs[awbIdx].trim() ? ` (${awbs[awbIdx].trim()})` : ''}`;
     const rejected: string[] = [];
     const accepted: File[] = [];
     for (const f of Array.from(list)) {
       if (!PICKUP_FILE_MIMES.includes(f.type)) {
-        rejected.push(`${f.name} is not a JPEG, PNG, WebP or PDF`);
+        rejected.push(`${label}: ${f.name} is not a JPEG, PNG, WebP or PDF`);
       } else if (f.size > MAX_PICKUP_FILE_BYTES) {
-        rejected.push(`${f.name} is over 5 MB`);
+        rejected.push(`${label}: ${f.name} is over 5 MB`);
       } else {
         accepted.push(f);
       }
     }
-    const room = MAX_PICKUP_FILES - files.length;
-    const take = accepted.slice(0, Math.max(0, room));
-    if (take.length < accepted.length) rejected.push(`at most ${MAX_PICKUP_FILES} files can be attached`);
+    const row = awbFiles[awbIdx] ?? [];
+    let take = accepted.slice(0, Math.max(0, MAX_PICKUP_FILES_PER_AWB - row.length));
+    if (take.length < accepted.length) {
+      rejected.push(`${label}: at most ${MAX_PICKUP_FILES_PER_AWB} photos per AWB`);
+    }
+    const attached = awbFiles.reduce((n, r) => n + r.length, 0);
+    const room = MAX_PICKUP_FILES - attached;
+    if (take.length > room) {
+      take = take.slice(0, Math.max(0, room));
+      rejected.push(`at most ${MAX_PICKUP_FILES} photos per request`);
+    }
     setFileNote(rejected.length ? rejected.join(' · ') : null);
-    if (take.length) setFiles([...files, ...take.map((f) => ({ file: f, url: f.type.startsWith('image/') ? URL.createObjectURL(f) : null }))]);
-    if (fileInput.current) fileInput.current.value = '';
+    if (take.length) {
+      setAwbFiles(awbFiles.map((r, i) => (
+        i === awbIdx ? [...r, ...take.map((f) => ({ file: f, url: f.type.startsWith('image/') ? URL.createObjectURL(f) : null }))] : r
+      )));
+    }
   }
 
   // Preview URLs are deliberately not revoked: they point at File data the
   // state holds anyway, and the registry entries die with the document.
-  function removeFile(i: number) {
-    setFiles(files.filter((_, idx) => idx !== i));
+  function removeFile(awbIdx: number, j: number) {
+    setAwbFiles(awbFiles.map((r, i) => (i === awbIdx ? r.filter((_, idx) => idx !== j) : r)));
     setFileNote(null);
   }
 
@@ -216,7 +242,7 @@ export default function PickupRequestForm() {
         pincode: typed ? pincode.trim() : '',
         awbs: awbs.map((a) => a.trim()),
         readyAt: ready.toISOString(),
-        files: files.map((f) => f.file),
+        files: awbFiles.map((row) => row.map((c) => c.file)),
       });
       setCreated(req);
       setCode('');
@@ -431,64 +457,72 @@ export default function PickupRequestForm() {
           </div>
 
           <div className="flex flex-col gap-2.5">
-            <span className="text-sm font-medium text-brand-dark">AWB numbers</span>
-            {awbs.map((a, i) => (
-              <input
-                key={i}
-                type="text"
-                value={a}
-                onChange={(e) => setAwbs(awbs.map((x, idx) => (idx === i ? e.target.value : x)))}
-                placeholder={`AWB ${i + 1}`}
-                required
-                className={inputCls}
-              />
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-brand-dark">
-              Upload AWB images <span className="font-normal text-gray-400">(optional)</span>
+              AWB numbers <span className="font-normal text-gray-400">— add each box&apos;s photos beside it (optional)</span>
             </span>
-            <label className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 border border-dashed border-gray-300 rounded-lg text-sm font-semibold text-brand-orange hover:bg-orange-50 transition-colors">
-              <FileIcon />
-              Choose files — JPEG, PNG, WebP or PDF
-              <input
-                ref={fileInput}
-                type="file"
-                multiple
-                accept={PICKUP_FILE_MIMES.join(',')}
-                className="hidden"
-                onChange={(e) => addFiles(e.target.files)}
-              />
-            </label>
-            <p className="text-xs text-gray-400">Up to {MAX_PICKUP_FILES} files, 5 MB each.</p>
+            {/* Both caps are stated up front so the server never has to refuse
+                what the form could have caught. */}
+            <p className="text-xs text-gray-400">
+              Up to {MAX_PICKUP_FILES_PER_AWB} photos per AWB and {MAX_PICKUP_FILES} per request, 5 MB each — JPEG, PNG, WebP or PDF.
+            </p>
+            {awbs.map((a, i) => (
+              <div key={i} className="flex flex-col gap-2 border border-gray-200 rounded-lg p-3">
+                <input
+                  type="text"
+                  value={a}
+                  onChange={(e) => setAwbs(awbs.map((x, idx) => (idx === i ? e.target.value : x)))}
+                  placeholder={`AWB ${i + 1}`}
+                  required
+                  className={inputCls}
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-gray-300 rounded-lg text-xs font-semibold text-brand-orange hover:bg-orange-50 transition-colors">
+                    <FileIcon />
+                    Add photos
+                    <input
+                      type="file"
+                      multiple
+                      accept={PICKUP_FILE_MIMES.join(',')}
+                      className="hidden"
+                      onChange={(e) => {
+                        addFiles(i, e.target.files);
+                        e.target.value = ''; // let the same file be re-picked after a remove
+                      }}
+                    />
+                  </label>
+                  <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                    {awbFiles[i]?.length ?? 0}/{MAX_PICKUP_FILES_PER_AWB} photos
+                  </span>
+                </div>
+                {(awbFiles[i]?.length ?? 0) > 0 && (
+                  <ul className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                    {awbFiles[i].map(({ file, url }, j) => (
+                      <li key={`${file.name}-${j}`} className="relative">
+                        {url ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- local blob preview of a just-chosen file; next/image has nothing to optimize here
+                          <img src={url} alt={file.name} className="w-full aspect-square object-cover rounded-lg border border-gray-200" />
+                        ) : (
+                          <span className="w-full aspect-square rounded-lg border border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400">
+                            <FileIcon />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide">PDF</span>
+                          </span>
+                        )}
+                        <span className="block mt-1 text-[11px] text-gray-500 truncate" title={file.name}>{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i, j)}
+                          className="absolute top-1 right-1 w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-500 flex items-center justify-center text-xs"
+                          aria-label={`Remove ${file.name} from AWB ${i + 1}`}
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
             {fileNote && <p className="text-xs text-amber-700">{fileNote}</p>}
-            {files.length > 0 && (
-              <ul className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                {files.map(({ file, url }, i) => (
-                  <li key={`${file.name}-${i}`} className="relative">
-                    {url ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- local blob preview of a just-chosen file; next/image has nothing to optimize here
-                      <img src={url} alt={file.name} className="w-full aspect-square object-cover rounded-lg border border-gray-200" />
-                    ) : (
-                      <span className="w-full aspect-square rounded-lg border border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400">
-                        <FileIcon />
-                        <span className="text-[10px] font-semibold uppercase tracking-wide">PDF</span>
-                      </span>
-                    )}
-                    <span className="block mt-1 text-[11px] text-gray-500 truncate" title={file.name}>{file.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-white border border-gray-200 text-gray-500 flex items-center justify-center"
-                      aria-label={`Remove ${file.name}`}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

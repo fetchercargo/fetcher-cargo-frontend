@@ -10,8 +10,10 @@ export type PickupStatus = StatusConfig;
 export type PickupStatusInput = StatusInput;
 
 // Attachment caps enforced by the backend on submit; mirrored so the form can
-// reject bad files before the round trip.
-export const MAX_PICKUP_FILES = 10;
+// reject bad files before the round trip. Photos are optional PER AWB — a
+// request may photograph some boxes and not others.
+export const MAX_PICKUP_FILES_PER_AWB = 5;
+export const MAX_PICKUP_FILES = 40; // per request, across every AWB
 export const MAX_PICKUP_FILE_BYTES = 5 * 1024 * 1024;
 export const PICKUP_FILE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
@@ -32,6 +34,9 @@ export interface PickupLocationsResult {
 }
 
 export interface PickupRequestAWB {
+  // Row id, present on ADMIN reads so images can be grouped under their box;
+  // the public endpoints project it away, hence optional.
+  id?: number;
   sortOrder: number;
   awb: string;
 }
@@ -64,6 +69,10 @@ export interface PickupPublicRequest {
 export interface PickupRequestFile {
   id: number;
   sortOrder: number;
+  // The box this image is proof for; null = attached to the request, not a
+  // particular AWB (rows from before the per-AWB change, or the bare-files
+  // compatibility field).
+  awbId: number | null;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -151,7 +160,7 @@ async function pickupJson<T>(res: Response, fallback: string): Promise<T> {
 export function pickupRateMessage(e: unknown, fallback: string): string {
   if (e instanceof PickupError) {
     if (e.status === 413) {
-      return 'That upload is too large — attach at most 10 files of 5 MB each, then try again.';
+      return `That upload is too large — attach at most ${MAX_PICKUP_FILES} files of 5 MB each, then try again.`;
     }
     if (e.status === 429) {
       return 'Too many requests — please wait a few minutes and try again.';
@@ -184,12 +193,15 @@ export interface PickupSubmitForm {
   pincode: string;
   awbs: string[];
   readyAt: string; // RFC 3339
-  files: File[];
+  // Per-AWB photos, parallel to awbs: files[i] belongs to awbs[i]. An AWB with
+  // no photo simply has an empty array — all photos are optional.
+  files: File[][];
 }
 
 // submitPickupRequest builds the multipart body itself so the field names live
 // in exactly one place (they must match the Go handler, which reads them by
-// string).
+// string). Photos ride indexed names — files[0] for the first awb, files[1]
+// for the second — so each image is tied to the box it is proof for.
 export async function submitPickupRequest(form: PickupSubmitForm): Promise<PickupPublicRequest> {
   const fd = new FormData();
   fd.append('captcha_token', form.captchaToken);
@@ -209,7 +221,7 @@ export async function submitPickupRequest(form: PickupSubmitForm): Promise<Picku
   fd.append('awbCount', String(form.awbs.length));
   form.awbs.forEach((a) => fd.append('awb', a));
   fd.append('readyAt', form.readyAt);
-  form.files.forEach((f) => fd.append('files', f, f.name));
+  form.files.forEach((row, i) => row.forEach((f) => fd.append(`files[${i}]`, f, f.name)));
   const res = await fetch('/api/pickup/requests', { method: 'POST', body: fd });
   return pickupJson(res, 'Could not submit your pickup request.');
 }
