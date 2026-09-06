@@ -8,12 +8,13 @@ import {
   MAX_PICKUP_FILE_BYTES,
   PICKUP_FILE_MIMES,
   fetchPickupLocations,
+  pickupRateMessage,
   resendPickupOTP,
   submitPickupRequest,
   verifyPickupRequest,
   PickupError,
   type PickupLocationOption,
-  type PickupRequest,
+  type PickupPublicRequest,
 } from '@/lib/pickup';
 
 // The backend caps the form at 50 AWBs (pickup service); the input matches.
@@ -57,7 +58,7 @@ type Step = 'form' | 'verify' | 'done';
 
 export default function PickupRequestForm() {
   const [step, setStep] = useState<Step>('form');
-  const [created, setCreated] = useState<PickupRequest | null>(null);
+  const [created, setCreated] = useState<PickupPublicRequest | null>(null);
 
   const [customerId, setCustomerId] = useState('');
   const [email, setEmail] = useState('');
@@ -125,32 +126,28 @@ export default function PickupRequestForm() {
   // `chosen` is the location id submit should send: the select's value on a
   // cached lookup, the pre-selected first option on a fresh one (the select
   // could not have been touched yet).
+  // No CAPTCHA here: the lookup is answered with labels + city only, so the
+  // backend gates it with a tight per-IP limit instead of a challenge.
   const runLookup = useCallback(async (): Promise<{ matched: boolean; locations: PickupLocationOption[]; chosen: number | null } | null> => {
     const id = customerId.trim();
     if (!id) return null;
     if (lookup && lookup.id === id) {
       return { matched: lookup.matched, locations: lookup.locations, chosen: lookup.locations.length ? Number(locationId) : null };
     }
-    if (!captchaAnswer.trim()) {
-      setLookupNote('Answer the CAPTCHA below first — we use it to check your Customer ID.');
-      return null;
-    }
     setChecking(true);
     setLookupNote(null);
     try {
-      const r = await fetchPickupLocations(id, captchaToken, captchaAnswer.trim());
+      const r = await fetchPickupLocations(id);
       setLookup({ id, matched: r.matched, locations: r.locations });
       setLocationId(r.locations.length ? String(r.locations[0].id) : '');
       return { matched: r.matched, locations: r.locations, chosen: r.locations.length ? r.locations[0].id : null };
     } catch (e) {
-      setLookupNote(e instanceof Error ? e.message : 'Could not check your Customer ID.');
-      // 403 = wrong or expired CAPTCHA; a fresh challenge makes the retry work.
-      if (e instanceof PickupError && e.status === 403) fetchCaptcha();
+      setLookupNote(pickupRateMessage(e, 'Could not check your Customer ID.'));
       return null;
     } finally {
       setChecking(false);
     }
-  }, [customerId, lookup, locationId, captchaAnswer, captchaToken, fetchCaptcha]);
+  }, [customerId, lookup, locationId]);
 
   function handleCount(v: string) {
     setCountStr(v);
@@ -230,8 +227,12 @@ export default function PickupRequestForm() {
       // user, so skip straight to the confirmation.
       setOtpUsed(!req.verifiedAt);
       setStep(req.verifiedAt ? 'done' : 'verify');
+      // The submit CAPTCHA is single-use and burned whether the request
+      // succeeded or failed, so ALWAYS take a fresh challenge (the verify
+      // step's resend needs one) and clear the typed answer.
+      fetchCaptcha();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not submit your pickup request.');
+      setError(pickupRateMessage(e, 'Could not submit your pickup request.'));
       fetchCaptcha();
     } finally {
       setSubmitting(false);
@@ -249,10 +250,8 @@ export default function PickupRequestForm() {
     } catch (e) {
       if (e instanceof PickupError && e.status === 401) {
         setVerifyError('That code is invalid or has expired. Please try again.');
-      } else if (e instanceof PickupError && e.status === 429) {
-        setVerifyError('Too many attempts — please wait a few minutes and try again.');
       } else {
-        setVerifyError(e instanceof Error ? e.message : 'Could not verify your code.');
+        setVerifyError(pickupRateMessage(e, 'Could not verify your code.'));
       }
     } finally {
       setVerifying(false);
@@ -261,15 +260,26 @@ export default function PickupRequestForm() {
 
   async function handleResend() {
     if (!created || resending) return;
+    if (!captchaAnswer.trim() || !captchaToken) {
+      setVerifyError('Answer the CAPTCHA first — it keeps the code service safe from abuse.');
+      return;
+    }
     setResending(true);
     setVerifyError(null);
     setResendNote(null);
     try {
-      await resendPickupOTP(created.ref);
+      await resendPickupOTP(created.ref, captchaToken, captchaAnswer.trim());
       setResendNote(`A new code has been sent to ${created.email}.`);
     } catch (e) {
-      setVerifyError(e instanceof Error ? e.message : 'Could not resend the code.');
+      if (e instanceof PickupError && e.status === 403) {
+        setVerifyError('That CAPTCHA answer is incorrect or has expired. Please try again.');
+      } else {
+        setVerifyError(pickupRateMessage(e, 'Could not resend the code.'));
+      }
     } finally {
+      // The resend CAPTCHA burns on a successful send; refresh either way so
+      // the control never holds a dead token.
+      fetchCaptcha();
       setResending(false);
     }
   }
@@ -309,8 +319,10 @@ export default function PickupRequestForm() {
             {lookupNote && <p className="text-xs text-amber-700">{lookupNote}</p>}
           </div>
 
-          {/* CAPTCHA — same block as the tracker. Guards the Customer ID lookup
-              and the submit (the backend re-checks it on both). */}
+          {/* CAPTCHA — solved once, at submit. The Customer ID lookup no
+              longer needs it (labels + city only, per-IP limited on the
+              server); the challenge is single-use, so it is refreshed after
+              every submit attempt, success or failure. */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 sm:px-4 py-3">
             <span className="text-sm text-gray-500 whitespace-nowrap">Verify:</span>
             <span className="font-semibold text-brand-dark text-base whitespace-nowrap">
@@ -320,11 +332,6 @@ export default function PickupRequestForm() {
               type="text"
               value={captchaAnswer}
               onChange={(e) => setCaptchaAnswer(e.target.value)}
-              onBlur={() => {
-                // Retry path: answering the CAPTCHA after typing the Customer ID
-                // runs the lookup without needing another blur on that field.
-                if (customerId.trim() && (!lookup || lookup.id !== customerId.trim())) runLookup();
-              }}
               placeholder="?"
               className="w-16 sm:w-20 px-2 sm:px-3 py-1.5 border border-gray-300 rounded text-center text-base focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent"
               inputMode="numeric"
@@ -360,7 +367,7 @@ export default function PickupRequestForm() {
             <span className="text-sm font-medium text-brand-dark">Pickup location</span>
             {!lookup ? (
               <p className="text-sm text-gray-400 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-                Enter your Customer ID and answer the CAPTCHA — we&apos;ll load your saved pickup locations.
+                Enter your Customer ID — we&apos;ll load your saved pickup locations.
               </p>
             ) : !typedAddress ? (
               <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className={inputCls} required>
@@ -567,11 +574,38 @@ export default function PickupRequestForm() {
             )}
           </button>
 
+          {/* Resend sends mail exactly like submit, so it carries its own
+              freshly solved CAPTCHA — single-use on the server, so it is
+              refreshed after every resend attempt too. */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 sm:px-4 py-3">
+            <span className="text-sm text-gray-500 whitespace-nowrap">Resend:</span>
+            <span className="font-semibold text-brand-dark text-base whitespace-nowrap">
+              {captchaQuestion} =
+            </span>
+            <input
+              type="text"
+              value={captchaAnswer}
+              onChange={(e) => setCaptchaAnswer(e.target.value)}
+              placeholder="?"
+              className="w-16 sm:w-20 px-2 sm:px-3 py-1.5 border border-gray-300 rounded text-center text-base focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent"
+              inputMode="numeric"
+            />
+            <button
+              type="button"
+              onClick={fetchCaptcha}
+              className="text-gray-400 hover:text-brand-orange transition-colors p-1"
+              title="New challenge"
+              aria-label="New challenge"
+            >
+              <RefreshIcon />
+            </button>
+          </div>
+
           <div className="flex justify-center text-sm">
             <button
               type="button"
               onClick={handleResend}
-              disabled={resending}
+              disabled={resending || !captchaAnswer.trim()}
               className="font-semibold text-brand-orange hover:text-brand-coral transition-colors disabled:opacity-50"
             >
               {resending ? 'Sending…' : 'Resend code'}

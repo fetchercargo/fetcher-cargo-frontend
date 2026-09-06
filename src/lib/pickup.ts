@@ -36,6 +36,31 @@ export interface PickupRequestAWB {
   awb: string;
 }
 
+// Attachment metadata as the PUBLIC endpoints return it: display fields only.
+// Storage state (driveFileId, hasContent) is deliberately not part of the
+// public shape — the backend projects onto its own response type, and this
+// mirrors it.
+export interface PickupPublicFile {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+// The request as the anonymous form sees it after submit/verify. The backend
+// answers with its own public projection, never the full row.
+export interface PickupPublicRequest {
+  ref: string;
+  customerId: string;
+  customerMatched: boolean;
+  email: string;
+  awbCount: number;
+  readyAt: string;
+  status: string;
+  verifiedAt: string | null;
+  awbs: PickupRequestAWB[];
+  files: PickupPublicFile[];
+}
+
 export interface PickupRequestFile {
   id: number;
   sortOrder: number;
@@ -57,9 +82,9 @@ export interface PickupResolvedLocation {
   contactNo: string;
 }
 
-// The full request, as returned by submit/verify (public) and the admin detail
-// read. AWBs/files are populated on those reads only; pickupLocation on admin
-// reads only.
+// The full request, as returned by the admin detail read (the public form gets
+// PickupPublicRequest above). AWBs/files are populated on that read only;
+// pickupLocation on admin reads only.
 export interface PickupRequest {
   id: number;
   ref: string;
@@ -119,17 +144,31 @@ async function pickupJson<T>(res: Response, fallback: string): Promise<T> {
   return data as T;
 }
 
-export async function fetchPickupLocations(
-  customerId: string,
-  captchaToken: string,
-  captchaAnswer: string,
-): Promise<PickupLocationsResult> {
-  const params = new URLSearchParams({
-    customerId,
-    captcha_answer: captchaAnswer,
-    captcha_token: captchaToken,
+// Maps an endpoint error to a readable message for the two statuses the form
+// can genuinely hit and should explain itself: 413 (the upload crossed the
+// whole-body cap) and 429 (a rate limit — per IP or per mailbox). Anything
+// else falls back to the server's message.
+export function pickupRateMessage(e: unknown, fallback: string): string {
+  if (e instanceof PickupError) {
+    if (e.status === 413) {
+      return 'That upload is too large — attach at most 10 files of 5 MB each, then try again.';
+    }
+    if (e.status === 429) {
+      return 'Too many requests — please wait a few minutes and try again.';
+    }
+  }
+  return e instanceof Error ? e.message : fallback;
+}
+
+// The lookup takes no CAPTCHA (labels + city only, behind a tight per-IP
+// limit) and is a POST: the customer id must ride in a body, never in a URL
+// that logs and proxies would record.
+export async function fetchPickupLocations(customerId: string): Promise<PickupLocationsResult> {
+  const res = await fetch('/api/pickup/locations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customerId }),
   });
-  const res = await fetch(`/api/pickup/locations?${params.toString()}`);
   return pickupJson(res, 'Could not check your Customer ID.');
 }
 
@@ -151,7 +190,7 @@ export interface PickupSubmitForm {
 // submitPickupRequest builds the multipart body itself so the field names live
 // in exactly one place (they must match the Go handler, which reads them by
 // string).
-export async function submitPickupRequest(form: PickupSubmitForm): Promise<PickupRequest> {
+export async function submitPickupRequest(form: PickupSubmitForm): Promise<PickupPublicRequest> {
   const fd = new FormData();
   fd.append('captcha_token', form.captchaToken);
   fd.append('captcha_answer', form.captchaAnswer);
@@ -175,7 +214,7 @@ export async function submitPickupRequest(form: PickupSubmitForm): Promise<Picku
   return pickupJson(res, 'Could not submit your pickup request.');
 }
 
-export async function verifyPickupRequest(ref: string, code: string): Promise<PickupRequest> {
+export async function verifyPickupRequest(ref: string, code: string): Promise<PickupPublicRequest> {
   const res = await fetch('/api/pickup/requests/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -184,11 +223,13 @@ export async function verifyPickupRequest(ref: string, code: string): Promise<Pi
   return pickupJson(res, 'Could not verify your code.');
 }
 
-export async function resendPickupOTP(ref: string): Promise<void> {
+// Resend sends mail exactly like submit, so it carries exactly submit's
+// gates: a freshly solved, single-use CAPTCHA alongside the ref.
+export async function resendPickupOTP(ref: string, captchaToken: string, captchaAnswer: string): Promise<void> {
   const res = await fetch('/api/pickup/requests/resend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ref }),
+    body: JSON.stringify({ ref, captcha_token: captchaToken, captcha_answer: captchaAnswer }),
   });
   await pickupJson(res, 'Could not resend the code.');
 }
