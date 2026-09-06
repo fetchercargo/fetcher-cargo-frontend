@@ -66,6 +66,13 @@ export default function AdminPickupRequestsPage() {
 
   const hasFilters = filters.status || filters.from || filters.to;
 
+  // A plain navigation like the shipments export: the session cookie rides the
+  // request, so no fetch/axios dance is needed for a file download.
+  function handleExport() {
+    const qs = buildPickupQuery(filters);
+    window.location.href = '/api/admin/pickup-requests/export.xlsx' + (qs ? `?${qs}` : '');
+  }
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -73,6 +80,19 @@ export default function AdminPickupRequestsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Pickup requests</h1>
           <p className="text-gray-500 mt-1">Raised from the public form once their email is verified — work them as ops.</p>
         </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={!items || items.length === 0}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-brand-orange border border-brand-orange rounded-lg hover:bg-orange-50 transition-colors whitespace-nowrap disabled:opacity-50 disabled:pointer-events-none"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M12 15V3" />
+          </svg>
+          Export
+        </button>
       </div>
 
       <div className="mt-6 bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-2">
