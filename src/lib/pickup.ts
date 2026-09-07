@@ -15,6 +15,11 @@ export type PickupStatusInput = StatusInput;
 export const MAX_PICKUP_FILES_PER_AWB = 5;
 export const MAX_PICKUP_FILES = 40; // per request, across every AWB
 export const MAX_PICKUP_FILE_BYTES = 5 * 1024 * 1024;
+// The WHOLE-request cap. It is the binding one — 40 files under 5 MB each can
+// still cross it — so the form sums sizes too; without that, an upload could
+// pass every other client check and die at the server with a 413 telling the
+// user to do exactly what they just did.
+export const MAX_PICKUP_TOTAL_BYTES = 60 * 1024 * 1024;
 export const PICKUP_FILE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
 // ---- Public form -----------------------------------------------------------
@@ -155,12 +160,13 @@ async function pickupJson<T>(res: Response, fallback: string): Promise<T> {
 
 // Maps an endpoint error to a readable message for the two statuses the form
 // can genuinely hit and should explain itself: 413 (the upload crossed the
-// whole-body cap) and 429 (a rate limit — per IP or per mailbox). Anything
-// else falls back to the server's message.
+// whole-body cap — so name the TOTAL, which is the binding limit, not the
+// per-file rules the user may already have honoured) and 429 (a rate limit —
+// per IP or per mailbox). Anything else falls back to the server's message.
 export function pickupRateMessage(e: unknown, fallback: string): string {
   if (e instanceof PickupError) {
     if (e.status === 413) {
-      return `That upload is too large — attach at most ${MAX_PICKUP_FILES} files of 5 MB each, then try again.`;
+      return `That upload is too large — keep all images under ${MAX_PICKUP_TOTAL_BYTES / (1024 * 1024)} MB in total, then try again.`;
     }
     if (e.status === 429) {
       return 'Too many requests — please wait a few minutes and try again.';

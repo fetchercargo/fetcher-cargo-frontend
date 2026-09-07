@@ -85,6 +85,20 @@ export async function deleteCustomField(id: number): Promise<Response> {
   return fetch(`/api/admin/fields/${id}`, { method: 'DELETE' });
 }
 
+// Reorder applies a whole display order in ONE request; the backend derives
+// each field's sort_order from the list position and applies it in a single
+// transaction. The arrows used to swap two rows with two independent PUTs —
+// when the second failed, both rows shared a sort_order and the pair's arrows
+// from then on wrote each row the value it already had: 200s, no movement,
+// and no repair from the page.
+export async function reorderCustomFields(ids: number[]): Promise<Response> {
+  return fetch('/api/admin/fields/reorder', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export async function saveShipmentCustomFields(shipmentId: number, values: Record<number, string>): Promise<Response> {
   return fetch(`/api/admin/shipments/${shipmentId}/fields`, {
     method: 'PUT',

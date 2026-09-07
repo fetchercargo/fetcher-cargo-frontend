@@ -8,6 +8,7 @@ import {
   createCustomField,
   deleteCustomField,
   fetchCustomFields,
+  reorderCustomFields,
   updateCustomField,
   CUSTOM_FIELD_TYPES,
   type CustomField,
@@ -127,16 +128,19 @@ export default function ReferenceFieldsPage() {
     const idx = items.findIndex((x) => x.id === f.id);
     const swapWith = idx + dir;
     if (swapWith < 0 || swapWith >= items.length) return;
-    const other = items[swapWith];
     setBusyId(f.id);
     setBanner(null);
     try {
-      // Both definitions are resent whole, so fieldType must ride along or the
-      // reorder would quietly reset each field's type.
-      const a = await updateCustomField(f.id, { ...toInput(f), sortOrder: other.sortOrder });
-      const b = await updateCustomField(other.id, { ...toInput(other), sortOrder: f.sortOrder });
-      if (!a.ok || !b.ok) setBanner(await errorMessage(a.ok ? b : a, 'Could not reorder the fields.'));
-      reload();
+      // ONE request carrying the full new order; the backend applies it in a
+      // single transaction. Two independent PUTs could leave both rows
+      // sharing a sort_order when the second failed — and from then on the
+      // arrows for that pair wrote each row the value it already had: 200s,
+      // no movement, no repair from this page.
+      const ordered = [...items];
+      [ordered[idx], ordered[swapWith]] = [ordered[swapWith], ordered[idx]];
+      const res = await reorderCustomFields(ordered.map((x) => x.id));
+      if (!res.ok) setBanner(await errorMessage(res, 'Could not reorder the fields.'));
+      else reload();
     } catch {
       setBanner('Could not reorder the fields.');
     } finally {

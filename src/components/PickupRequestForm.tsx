@@ -7,6 +7,7 @@ import {
   MAX_PICKUP_FILES,
   MAX_PICKUP_FILES_PER_AWB,
   MAX_PICKUP_FILE_BYTES,
+  MAX_PICKUP_TOTAL_BYTES,
   PICKUP_FILE_MIMES,
   fetchPickupLocations,
   pickupRateMessage,
@@ -206,8 +207,9 @@ export default function PickupRequestForm() {
 
   // Adds photos to ONE AWB's row, enforcing every cap locally so the server
   // never has to refuse what the form could have caught: type and size per
-  // file, the per-AWB cap, and the per-request cap across all rows. Every
-  // rejection names the AWB it belongs to, because the controls are per box.
+  // file, the per-AWB cap, the per-request count cap, and the per-request
+  // TOTAL byte cap. Every rejection names the AWB it belongs to, because the
+  // controls are per box.
   function addFiles(awbIdx: number, list: FileList | null) {
     if (!list) return;
     const label = `AWB ${awbIdx + 1}${awbs[awbIdx] && awbs[awbIdx].trim() ? ` (${awbs[awbIdx].trim()})` : ''}`;
@@ -233,6 +235,22 @@ export default function PickupRequestForm() {
       take = take.slice(0, Math.max(0, room));
       rejected.push(`at most ${MAX_PICKUP_FILES} photos per request`);
     }
+    // The whole-request byte cap: the server refuses the upload when the
+    // images total over the limit, so a form that checked only the per-file
+    // and count caps let a compliant-looking upload leave with a 413 whose
+    // message told the user to do exactly what they had just done.
+    const totalMB = MAX_PICKUP_TOTAL_BYTES / (1024 * 1024);
+    let used = awbFiles.reduce((n, r) => n + r.reduce((s, c) => s + c.file.size, 0), 0);
+    const fitting: File[] = [];
+    for (const f of take) {
+      if (used + f.size > MAX_PICKUP_TOTAL_BYTES) {
+        rejected.push(`${label}: ${f.name} would push the request over ${totalMB} MB in total`);
+        continue;
+      }
+      used += f.size;
+      fitting.push(f);
+    }
+    take = fitting;
     setFileNote(rejected.length ? rejected.join(' · ') : null);
     if (take.length) {
       setAwbFiles(awbFiles.map((r, i) => (
@@ -494,10 +512,12 @@ export default function PickupRequestForm() {
             <span className="text-sm font-medium text-brand-dark">
               AWB numbers <span className="font-normal text-gray-400">— add each box&apos;s photos beside it (optional)</span>
             </span>
-            {/* Both caps are stated up front so the server never has to refuse
-                what the form could have caught. */}
+            {/* Every cap is stated up front so the server never has to refuse
+                what the form could have caught — including the whole-request
+                total, which the per-file and count rules cannot express. */}
             <p className="text-xs text-gray-400">
-              Up to {MAX_PICKUP_FILES_PER_AWB} photos per AWB and {MAX_PICKUP_FILES} per request, 5 MB each — JPEG, PNG, WebP or PDF.
+              Up to {MAX_PICKUP_FILES_PER_AWB} photos per AWB, {MAX_PICKUP_FILES} per request and{' '}
+              {MAX_PICKUP_TOTAL_BYTES / (1024 * 1024)} MB in total, 5 MB each — JPEG, PNG, WebP or PDF.
             </p>
             {awbs.map((a, i) => (
               <div key={i} className="flex flex-col gap-2 border border-gray-200 rounded-lg p-3">
