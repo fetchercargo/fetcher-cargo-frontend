@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BrandDots } from '@/components/BrandLoader';
 import StateSelect from '@/components/StateSelect';
 import {
@@ -20,6 +20,23 @@ import {
 
 // The backend caps the form at 50 AWBs (pickup service); the input matches.
 const MAX_AWBS = 50;
+
+/** Overlays the live array onto the remembered one, so edits made since the
+ *  last resize win and anything hidden below the current count is kept. */
+function foldInto<T>(kept: T[], live: T[]): T[] {
+  const out = kept.slice();
+  live.forEach((v, i) => {
+    out[i] = v;
+  });
+  return out;
+}
+
+/** The first n entries, padded with fresh blanks when the source is short. */
+function sized<T>(src: T[], n: number, blank: () => T): T[] {
+  const out = src.slice(0, n);
+  while (out.length < n) out.push(blank());
+  return out;
+}
 
 const inputCls =
   'w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent transition-shadow';
@@ -86,6 +103,11 @@ export default function PickupRequestForm() {
   // is proof for ONE box, so the picker lives on the AWB row, and a row may
   // legitimately stay empty — photos are optional per AWB.
   const [awbFiles, setAwbFiles] = useState<ChosenFile[][]>([[]]);
+  // The full history behind awbs/awbFiles. Lowering the shipment count hides
+  // rows instead of destroying them, so raising it again restores what was
+  // typed and attached.
+  const keptAwbs = useRef<string[]>(['']);
+  const keptFiles = useRef<ChosenFile[][]>([[]]);
   const [fileNote, setFileNote] = useState<string | null>(null);
 
   const [readyDate, setReadyDate] = useState('');
@@ -154,19 +176,31 @@ export default function PickupRequestForm() {
 
   function handleCount(v: string) {
     setCountStr(v);
-    const n = Math.min(MAX_AWBS, Math.max(1, parseInt(v, 10) || 1));
-    // Slice/extend in place so typed AWBs — and the photos attached to them —
-    // survive a change in either direction: lowering the count and raising it
-    // again restores both, exactly like the numbers themselves.
+    const parsed = parseInt(v, 10);
+    // An empty or half-typed box is NOT a count of one.
+    //
+    // This used to be `parseInt(v, 10) || 1`, so clicking into the box and
+    // pressing Backspace before retyping collapsed the count to 1 and trimmed
+    // both arrays to a single row — silently destroying every AWB below it AND
+    // the photos attached to them. Retyping the number brought back empty rows,
+    // nothing said anything was lost, and the user submitted a request missing
+    // the proof photos they had already attached.
+    //
+    // A transient value means "still typing", so leave the data alone.
+    if (!Number.isInteger(parsed) || parsed < 1) return;
+    const n = Math.min(MAX_AWBS, parsed);
+
+    // Lowering the count hides rows rather than discarding them, so raising it
+    // again brings the numbers and photos back — which is what the old comment
+    // here promised and `slice` never delivered. `prev` is folded in first so
+    // edits made since the last resize are never lost.
     setAwbs((prev) => {
-      const next = prev.slice(0, n);
-      while (next.length < n) next.push('');
-      return next;
+      keptAwbs.current = foldInto(keptAwbs.current, prev);
+      return sized(keptAwbs.current, n, () => '');
     });
     setAwbFiles((prev) => {
-      const next = prev.slice(0, n);
-      while (next.length < n) next.push([]);
-      return next;
+      keptFiles.current = foldInto(keptFiles.current, prev);
+      return sized(keptFiles.current, n, () => []);
     });
   }
 
