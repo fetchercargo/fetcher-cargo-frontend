@@ -66,6 +66,13 @@ const SettingsIcon: FC = () => (
   </Icon>
 );
 
+const LabelsIcon: FC = () => (
+  <Icon>
+    <path d="M3 7a2 2 0 0 1 2-2h6.17a2 2 0 0 1 1.42.59l7.82 7.82a2 2 0 0 1 0 2.83l-5.17 5.17a2 2 0 0 1-2.83 0L4.59 13.6A2 2 0 0 1 4 12.17V7Z" />
+    <circle cx="8.5" cy="9.5" r="1.5" />
+  </Icon>
+);
+
 const LinksIcon: FC = () => (
   <Icon>
     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -87,6 +94,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { label: 'Create Shipment', href: '/admin/shipments/new', icon: CreateIcon, match: (p) => p === '/admin/shipments/new' },
   { label: 'Users', href: '/admin/users', icon: UsersIcon, match: (p) => p.startsWith('/admin/users') },
   { label: 'Pincodes', href: '/admin/pincodes', icon: PincodeIcon, match: (p) => p.startsWith('/admin/pincodes') },
+  { label: 'Labels', href: '/admin/labels', icon: LabelsIcon, match: (p) => p.startsWith('/admin/labels') },
   { label: 'Links', href: '/admin/links', icon: LinksIcon, match: (p) => p.startsWith('/admin/links') },
   { label: 'Settings', href: '/admin/settings', icon: SettingsIcon, match: (p) => p.startsWith('/admin/settings') },
 ];
