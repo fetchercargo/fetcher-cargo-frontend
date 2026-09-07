@@ -77,11 +77,16 @@ export default function CustomFieldsSection({
   initial,
 }: {
   shipmentId: number;
-  initial: CustomFieldValue[];
+  // Nullable on purpose: the backend's non-fatal path can send null when the
+  // reference-field lookup fails (deploying before migration 0018 has run does
+  // it). Mapping over null threw and took the whole shipment page down over a
+  // section that was meant to degrade quietly. Both sides guard now, so neither
+  // depends on the other getting it right.
+  initial: CustomFieldValue[] | null | undefined;
 }) {
   const [values, setValues] = useState<Record<number, string>>(() => {
     const v: Record<number, string> = {};
-    for (const f of initial) v[f.fieldId] = f.value;
+    for (const f of initial ?? []) v[f.fieldId] = f.value;
     return v;
   });
   const [saving, setSaving] = useState(false);
@@ -119,7 +124,7 @@ export default function CustomFieldsSection({
         </Link>
       </div>
 
-      {initial.length === 0 ? (
+      {(initial ?? []).length === 0 ? (
         <p className="text-gray-400 text-sm mt-3">
           No reference fields yet — add one in{' '}
           <Link href="/admin/settings/fields" className="text-brand-orange hover:text-brand-coral font-medium">
@@ -131,7 +136,7 @@ export default function CustomFieldsSection({
         <>
           {/* Two columns, matching the sections above it on this page. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            {initial.map((f) => (
+            {(initial ?? []).map((f) => (
               <label key={f.fieldId} className="flex flex-col gap-1.5">
                 <CustomFieldLabel field={f} />
                 <CustomFieldInputControl
