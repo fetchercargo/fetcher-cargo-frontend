@@ -4,20 +4,15 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
 import Toggle from '@/components/admin/Toggle';
+import { STATUS_COLORS, STATUS_KINDS, badgeClasses, type StatusColor, type StatusKind } from '@/lib/status';
 import {
-  STATUS_COLORS,
-  STATUS_KINDS,
-  badgeClasses,
-  createStatus,
-  deleteStatus,
-  fetchStatuses,
-  reorderStatuses,
-  updateStatus,
-  type StatusColor,
-  type StatusConfig,
-  type StatusInput,
-  type StatusKind,
-} from '@/lib/status';
+  createPickupStatus,
+  deletePickupStatus,
+  fetchPickupStatuses,
+  updatePickupStatus,
+  type PickupStatus,
+  type PickupStatusInput,
+} from '@/lib/pickup';
 
 const KIND_LABEL: Record<StatusKind, string> = {
   normal: 'Normal step',
@@ -25,11 +20,11 @@ const KIND_LABEL: Record<StatusKind, string> = {
   exception: 'Exception',
 };
 
-function emptyDraft(nextOrder: number): StatusInput {
+function emptyDraft(nextOrder: number): PickupStatusInput {
   return { label: '', color: 'blue', kind: 'normal', sortOrder: nextOrder, isActive: true };
 }
 
-function toInput(s: StatusConfig): StatusInput {
+function toInput(s: PickupStatus): PickupStatusInput {
   return { label: s.label, color: s.color, kind: s.kind, sortOrder: s.sortOrder, isActive: s.isActive };
 }
 
@@ -42,18 +37,18 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   }
 }
 
-export default function StatusConfigPage() {
-  const [items, setItems] = useState<StatusConfig[] | null>(null);
+export default function PickupStatusesPage() {
+  const [items, setItems] = useState<PickupStatus[] | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [editing, setEditing] = useState<{ id: number | null; draft: StatusInput; code?: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: number | null; draft: PickupStatusInput; code?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
     setItems(null);
-    fetchStatuses().then((list) => {
+    fetchPickupStatuses().then((list) => {
       if (alive) setItems([...list].sort((a, b) => a.sortOrder - b.sortOrder));
     });
     return () => {
@@ -68,7 +63,7 @@ export default function StatusConfigPage() {
     setEditing({ id: null, draft: emptyDraft(nextOrder) });
   }
 
-  function openEdit(s: StatusConfig) {
+  function openEdit(s: PickupStatus) {
     setEditing({ id: s.id, draft: toInput(s), code: s.code });
   }
 
@@ -81,7 +76,7 @@ export default function StatusConfigPage() {
     setSaving(true);
     setBanner(null);
     try {
-      const res = editing.id === null ? await createStatus(editing.draft) : await updateStatus(editing.id, editing.draft);
+      const res = editing.id === null ? await createPickupStatus(editing.draft) : await updatePickupStatus(editing.id, editing.draft);
       if (!res.ok) {
         setBanner(await errorMessage(res, 'Could not save the status.'));
         return;
@@ -95,10 +90,10 @@ export default function StatusConfigPage() {
     }
   }
 
-  async function toggleActive(s: StatusConfig) {
+  async function toggleActive(s: PickupStatus) {
     setBusyId(s.id);
     try {
-      const res = await updateStatus(s.id, { ...toInput(s), isActive: !s.isActive });
+      const res = await updatePickupStatus(s.id, { ...toInput(s), isActive: !s.isActive });
       if (!res.ok) setBanner(await errorMessage(res, 'Could not update the status.'));
       else reload();
     } finally {
@@ -106,30 +101,11 @@ export default function StatusConfigPage() {
     }
   }
 
-  async function move(s: StatusConfig, dir: -1 | 1) {
-    if (!items) return;
-    const idx = items.findIndex((x) => x.id === s.id);
-    const swapWith = idx + dir;
-    if (swapWith < 0 || swapWith >= items.length) return;
-    const other = items[swapWith];
-    setBusyId(s.id);
-    try {
-      const res = await reorderStatuses([
-        { id: s.id, sortOrder: other.sortOrder },
-        { id: other.id, sortOrder: s.sortOrder },
-      ]);
-      if (!res.ok) setBanner(await errorMessage(res, 'Could not reorder.'));
-      else reload();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function remove(s: StatusConfig) {
+  async function remove(s: PickupStatus) {
     if (!window.confirm(`Delete the "${s.label}" status?`)) return;
     setBusyId(s.id);
     try {
-      const res = await deleteStatus(s.id);
+      const res = await deletePickupStatus(s.id);
       if (!res.ok) setBanner(await errorMessage(res, 'Could not delete the status.'));
       else reload();
     } finally {
@@ -144,10 +120,10 @@ export default function StatusConfigPage() {
           <nav className="text-sm text-gray-400 mb-1">
             <Link href="/admin/settings" className="hover:text-brand-orange">Settings</Link>
             <span className="mx-1.5">/</span>
-            <span className="text-brand-gray">Status Config</span>
+            <span className="text-brand-gray">Pickup Statuses</span>
           </nav>
-          <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Status Config</h1>
-          <p className="text-gray-500 mt-1">Shipment statuses used in bookings, the admin panel, and customer tracking.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Pickup Statuses</h1>
+          <p className="text-gray-500 mt-1">Statuses a pickup request moves through while ops schedule and run the collection.</p>
         </div>
         <button
           type="button"
@@ -174,6 +150,9 @@ export default function StatusConfigPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                {/* No up/down arrows here: unlike shipment Status Config, the
+                    pickup-statuses API has no reorder endpoint, so order is set
+                    by the Position field when editing. */}
                 <th className="px-4 py-3 font-semibold">Order</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold hidden sm:table-cell">Type</th>
@@ -182,24 +161,9 @@ export default function StatusConfigPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((s, i) => (
+              {items.map((s) => (
                 <tr key={s.id} className="border-b border-gray-50 last:border-b-0">
-                  <td className="px-4 py-3 align-middle">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => move(s, -1)}
-                        disabled={i === 0 || busyId === s.id}
-                        className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 hover:text-brand-dark disabled:opacity-30 disabled:hover:bg-transparent"
-                        aria-label="Move up"
-                      >↑</button>
-                      <button
-                        onClick={() => move(s, 1)}
-                        disabled={i === items.length - 1 || busyId === s.id}
-                        className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 hover:text-brand-dark disabled:opacity-30 disabled:hover:bg-transparent"
-                        aria-label="Move down"
-                      >↓</button>
-                    </div>
-                  </td>
+                  <td className="px-4 py-3 align-middle text-gray-400">{s.sortOrder}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClasses(s.color)}`}>{s.label}</span>
@@ -247,7 +211,7 @@ export default function StatusConfigPage() {
                 type="text"
                 value={editing.draft.label}
                 onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, label: e.target.value } })}
-                placeholder="e.g. Out for Delivery"
+                placeholder="e.g. Out for Pickup"
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
               />
             </label>
@@ -281,7 +245,6 @@ export default function StatusConfigPage() {
                 ))}
               </select>
             </label>
-            <p className="text-[11px] text-gray-400 mt-1">Normal &amp; terminal statuses appear in the customer progress bar; exceptions show as a badge.</p>
 
             <label className="block mt-4 text-sm font-medium text-brand-dark">
               Position
@@ -300,7 +263,7 @@ export default function StatusConfigPage() {
                 onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, isActive: e.target.checked } })}
                 className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
               />
-              Active (selectable on shipments)
+              Active (selectable on pickup requests)
             </label>
 
             <div className="mt-6 flex justify-end gap-3">

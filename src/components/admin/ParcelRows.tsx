@@ -1,19 +1,20 @@
 'use client';
 
+import { MAX_PARCELS } from '@/lib/bulk';
+
 export interface ParcelFormState {
   noOfPieces: string;
   weightKg: string;
   dimensions: string;
 }
 
-export const MAX_PARCELS = 5;
 export const emptyParcel = (): ParcelFormState => ({ noOfPieces: '1', weightKg: '', dimensions: '' });
 
 const inputCls =
   'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent';
 const labelCls = 'text-sm font-medium text-brand-dark';
 
-/** Repeatable list of parcels (1..MAX_PARCELS), each with pieces/weight/dimensions. */
+/** Repeatable list of parcels, each with pieces/weight/dimensions. */
 export default function ParcelRows({ rows, onChange }: { rows: ParcelFormState[]; onChange: (rows: ParcelFormState[]) => void }) {
   function update(i: number, key: keyof ParcelFormState, value: string) {
     onChange(rows.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
@@ -63,7 +64,7 @@ export default function ParcelRows({ rows, onChange }: { rows: ParcelFormState[]
           disabled={rows.length >= MAX_PARCELS}
           className="text-sm font-semibold text-brand-orange hover:text-brand-coral disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          + Add parcel{rows.length >= MAX_PARCELS ? ` (max ${MAX_PARCELS})` : ''}
+          + Add parcel
         </button>
         <span className="text-xs text-gray-500">
           Total: {totalPieces} pcs{totalWeight ? ` · ${+totalWeight.toFixed(3)} kg` : ''}

@@ -1,35 +1,32 @@
 import Link from 'next/link';
 
-interface SettingCard {
+interface LabelCard {
   title: string;
   description: string;
   href: string;
 }
 
-const CARDS: SettingCard[] = [
+const CARDS: LabelCard[] = [
   {
-    title: 'Status Config',
-    description: 'Add, rename, recolor, reorder, and activate shipment statuses used across bookings, the admin panel, and customer tracking.',
-    href: '/admin/settings/statuses',
+    title: 'Shipment Label Generator',
+    description:
+      'A 4x6 inch label for the consignment: both addresses, the service, the package details and the AWB. Search an AWB to fill it in, or type it all by hand.',
+    href: '/admin/labels/shipment',
   },
   {
-    title: 'Pickup Statuses',
-    description: 'The statuses a pickup request moves through while ops schedule and run the collection.',
-    href: '/admin/settings/pickup-statuses',
-  },
-  {
-    title: 'Reference Fields',
-    description: 'Extra fields on every shipment — reference numbers, internal notes. Choose which ones clients can see.',
-    href: '/admin/settings/fields',
+    title: 'Box Label Generator',
+    description:
+      'One sticker per box — the AWB and "Box 3 of 20" — eight to an A4 sheet. Enter the AWB and how many boxes the consignment has.',
+    href: '/admin/labels/boxes',
   },
 ];
 
-export default function AdminSettingsPage() {
+export default function AdminLabelsPage() {
   return (
     <div className="max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Settings</h1>
-        <p className="text-gray-500 mt-1">Configure how Fetcher Cargo behaves.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-brand-dark">Labels</h1>
+        <p className="text-gray-500 mt-1">Generate printable labels, preview them, and save them as PDF.</p>
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

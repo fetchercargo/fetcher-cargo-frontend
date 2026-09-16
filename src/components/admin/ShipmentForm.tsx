@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ClientCombobox from '@/components/admin/ClientCombobox';
+import { type CustomField } from '@/lib/customFields';
+import { CustomFieldInputControl, CustomFieldLabel } from '@/components/admin/CustomFieldsSection';
 import { SCOPES, TYPES, MODES, CATEGORIES, titleCase, type ClientLocation, type ClientOption } from '@/lib/admin';
 import { fetchStatuses, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import { BrandDots } from '@/components/BrandLoader';
@@ -37,8 +40,9 @@ export interface ShipmentFormState {
   isDg: boolean;
   additionalInfo: string;
   customerRef: string;
-  // ops (edit only)
+  // Optional custom AWB — blank at creation means the server generates an FCB one.
   awb: string;
+  // ops (edit only)
   status: string;
   batchNo: string;
   chargeableWeight: string;
@@ -111,6 +115,7 @@ function LocationPicker({ locations, onPick, label }: { locations: ClientLocatio
 export default function ShipmentForm({
   mode,
   clients = [],
+  customFields = [],
   initial,
   submitting,
   error,
@@ -119,6 +124,9 @@ export default function ShipmentForm({
 }: {
   mode: 'create' | 'edit';
   clients?: ClientOption[];
+  // Admin-defined fields to collect at creation. Their values come back on the
+  // submit payload as customFieldValues; the caller saves them separately.
+  customFields?: CustomField[];
   initial?: Partial<ShipmentFormState>;
   submitting: boolean;
   error: string | null;
@@ -126,6 +134,13 @@ export default function ShipmentForm({
   onSubmit: (payload: Record<string, unknown>) => void;
 }) {
   const [form, setForm] = useState<ShipmentFormState>({ ...DEFAULTS, ...initial });
+
+  // Locked on whether the shipment ALREADY had an AWB when the form loaded, not on
+  // the current input — otherwise typing one in would lock the field mid-edit.
+  const awbLocked = mode === 'edit' && !!initial?.awb?.trim();
+  // Custom field values, keyed by field id. Kept out of ShipmentFormState because
+  // they are saved by a separate endpoint, not part of the shipment payload.
+  const [cfValues, setCfValues] = useState<Record<number, string>>({});
 
   function set<K extends keyof ShipmentFormState>(key: K, value: ShipmentFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -214,9 +229,13 @@ export default function ShipmentForm({
       isDg: form.isDg,
       additionalInfo: form.additionalInfo,
       customerRef: form.customerRef,
+      // Only the create flow collects these; edit saves them via its own section.
+      ...(mode === 'create' ? { customFieldValues: cfValues } : {}),
     };
     if (mode === 'create') {
-      onSubmit({ clientCode: form.clientCode, ...base });
+      // awb rides on the create payload too: blank means the server generates
+      // an FCB number; a filled-in value is the admin's custom AWB.
+      onSubmit({ clientCode: form.clientCode, awb: form.awb, ...base });
       return;
     }
     onSubmit({
@@ -236,14 +255,12 @@ export default function ShipmentForm({
       {mode === 'create' && (
         <Section title="Client">
           <Field label="Book on behalf of" required full>
-            <select className={inputCls} value={form.clientCode} onChange={(e) => set('clientCode', e.target.value)} required>
-              <option value="">Select a client…</option>
-              {clients.map((c) => (
-                <option key={c.clientCode} value={c.clientCode}>
-                  {c.name} — {c.clientCode} ({c.email})
-                </option>
-              ))}
-            </select>
+            <ClientCombobox
+              clients={clients}
+              value={form.clientCode}
+              onChange={(code) => set('clientCode', code)}
+              required
+            />
             {clients.length === 0 && <p className="text-xs text-gray-400">No clients with a code yet. Create one under Users first.</p>}
           </Field>
         </Section>
@@ -272,6 +289,25 @@ export default function ShipmentForm({
         </Field>
         <Field label="Customer Reference">
           <input className={inputCls} value={form.customerRef} onChange={(e) => set('customerRef', e.target.value)} placeholder="PO / order no." />
+        </Field>
+        <Field label="AWB">
+          {/* Write-once. A shipment that already has an AWB keeps it: changing one
+              silently breaks tracking for anyone holding the old number, and a sheet
+              sync still carrying it creates a second, ownerless shipment. The server
+              enforces this too — this only spares the admin typing into a field that
+              would be rejected. Assigning one where there is none stays open, which
+              is how ops fill in a carrier number on a sheet-booked shipment. */}
+          <input
+            className={`${inputCls} ${awbLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+            value={form.awb}
+            readOnly={awbLocked}
+            onChange={(e) => !awbLocked && set('awb', e.target.value)}
+          />
+          <p className="text-xs text-gray-400">
+            {awbLocked
+              ? 'The AWB cannot be changed once a shipment has one. Cancel and rebook if it is wrong.'
+              : 'Leave blank to generate one automatically.'}
+          </p>
         </Field>
         <label className="flex items-center gap-2.5 sm:col-span-2 mt-1">
           <input type="checkbox" checked={form.isDg} onChange={(e) => set('isDg', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
@@ -352,9 +388,6 @@ export default function ShipmentForm({
 
       {mode === 'edit' && (
         <Section title="Commercial & Ops">
-          <Field label="AWB">
-            <input className={inputCls} value={form.awb} onChange={(e) => set('awb', e.target.value)} />
-          </Field>
           <Field label="Status" required>
             <select className={inputCls} value={form.status} onChange={(e) => set('status', e.target.value)}>
               {statusList
@@ -377,6 +410,24 @@ export default function ShipmentForm({
           <Field label="Remarks" full>
             <textarea rows={2} className={inputCls} value={form.remarks} onChange={(e) => set('remarks', e.target.value)} />
           </Field>
+        </Section>
+      )}
+
+      {mode === 'create' && customFields.length > 0 && (
+        <Section title="Reference Fields">
+          {customFields.map((f) => (
+            // Not `full`: these sit two-up like the rest of the form, and use the
+            // same label + control as the shipment page so a field looks identical
+            // whether it is filled in at booking or afterwards.
+            <div key={f.id} className="flex flex-col gap-1.5">
+              <CustomFieldLabel field={f} />
+              <CustomFieldInputControl
+                field={{ fieldId: f.id, fieldType: f.fieldType }}
+                value={cfValues[f.id] ?? ''}
+                onChange={(v) => setCfValues((prev) => ({ ...prev, [f.id]: v }))}
+              />
+            </div>
+          ))}
         </Section>
       )}
 

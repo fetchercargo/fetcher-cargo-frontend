@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import ShipmentForm, { type ShipmentFormState } from '@/components/admin/ShipmentForm';
 import { emptyParcel } from '@/components/admin/ParcelRows';
 import TrackingEditor from '@/components/admin/TrackingEditor';
+import CustomFieldsSection from '@/components/admin/CustomFieldsSection';
 import { type ShipmentDetail, type TrackingUpdate } from '@/lib/admin';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
@@ -122,6 +123,10 @@ export default function AdminEditShipmentPage() {
 
       <div className="mt-6">
         <ShipmentForm key={data.updatedAt} mode="edit" initial={detailToForm(data)} submitting={saving} error={error} submitLabel="Save changes" onSubmit={handleSave} />
+      </div>
+
+      <div className="mt-4">
+        <CustomFieldsSection shipmentId={data.id} initial={data.customFields} />
       </div>
 
       <div className="mt-4">

@@ -1,10 +1,15 @@
 // Shared types + helpers for the admin panel (mirrors the Go admin DTOs).
 
+import type { CustomFieldValue } from '@/lib/customFields';
+
 export interface AdminShipmentListItem {
   id: number;
   awb: string | null;
   clientCode: string | null;
   ownerEmail: string | null;
+  businessName: string | null;
+  businessEmail: string | null;
+  primaryContactPerson: string | null;
   status: string;
   scope: string | null;
   shipmentType: string | null;
@@ -14,8 +19,12 @@ export interface AdminShipmentListItem {
   weightKg: number | null;
   pickupPincode: string | null;
   deliveryPincode: string | null;
+  pickupCity: string | null;
+  deliveryCity: string | null;
   isDg: boolean;
   customerRef: string | null;
+  batchNo: string | null;
+  billingAmount: number | null;
   createdAt: string;
 }
 
@@ -30,6 +39,7 @@ export interface ClientOption {
   clientCode: string;
   name: string;
   email: string;
+  isActive: boolean;
 }
 
 export interface TrackingUpdate {
@@ -87,6 +97,7 @@ export interface ShipmentDetail {
   createdAt: string;
   updatedAt: string;
   updates: TrackingUpdate[];
+  customFields: CustomFieldValue[];
 }
 
 export interface AdminUser {
@@ -100,6 +111,9 @@ export interface AdminUser {
   businessEmail: string;
   primaryTel: string;
   primaryContactPerson: string;
+  isActive: boolean;
+  deactivatedAt?: string | null;
+  deactivationReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -203,4 +217,12 @@ export function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Time first, then the date — same date formatting as formatDate above.
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${time} · ${d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}`;
 }

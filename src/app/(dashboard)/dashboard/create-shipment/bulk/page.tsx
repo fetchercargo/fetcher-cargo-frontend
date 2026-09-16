@@ -6,6 +6,7 @@ import { BrandDots } from '@/components/BrandLoader';
 import BulkReviewGrid from '@/components/dashboard/BulkReviewGrid';
 import BulkResult from '@/components/dashboard/BulkResult';
 import type { BulkValidateResponse, ShipmentSummary } from '@/lib/bulk';
+import TemplateDownload from '@/components/dashboard/TemplateDownload';
 
 const ACCEPTED = '.xlsx';
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -28,16 +29,6 @@ function FileIcon() {
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6" />
       <path d="M8 13h8M8 17h8" />
-    </svg>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M12 15V3" />
     </svg>
   );
 }
@@ -183,13 +174,7 @@ export default function BulkCreatePage() {
           <li>Fill in one row per shipment (pickup, delivery, parcel, mode, etc.).</li>
           <li>Upload it below — review and fix any flagged rows, then create them all.</li>
         </ol>
-        <a
-          href="/templates/fetcher-bulk-shipments-template.xlsx"
-          download="fetcher-bulk-shipments-template.xlsx"
-          className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-orange hover:text-brand-coral transition-colors"
-        >
-          <DownloadIcon /> Download template
-        </a>
+        <TemplateDownload />
       </div>
 
       {/* Upload */}

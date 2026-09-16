@@ -201,7 +201,7 @@ export default function ShipmentFilters({
               <input list="admin-client-codes" className={`${ctl} w-full`} value={value.client} onChange={(e) => set('client', e.target.value)} placeholder="FCC0001" />
               <datalist id="admin-client-codes">
                 {clients.map((c) => (
-                  <option key={c.clientCode} value={c.clientCode}>{c.name}</option>
+                  <option key={c.clientCode} value={c.clientCode}>{c.isActive === false ? `${c.name} (deactivated)` : c.name}</option>
                 ))}
               </datalist>
             </Field>

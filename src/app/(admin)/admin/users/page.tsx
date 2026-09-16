@@ -13,10 +13,12 @@ function initials(name: string, email: string): string {
 }
 
 type Tab = 'all' | 'clients' | 'admins';
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [tab, setTab] = useState<Tab>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [q, setQ] = useState('');
 
   useEffect(() => {
@@ -38,10 +40,12 @@ export default function AdminUsersPage() {
     return users.filter((u) => {
       if (tab === 'clients' && u.role !== 'user') return false;
       if (tab === 'admins' && u.role !== 'admin') return false;
+      if (statusFilter === 'active' && !u.isActive) return false;
+      if (statusFilter === 'inactive' && u.isActive) return false;
       if (!needle) return true;
       return [u.name, u.email, u.clientCode, u.businessName].some((v) => (v || '').toLowerCase().includes(needle));
     });
-  }, [users, tab, q]);
+  }, [users, tab, statusFilter, q]);
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -67,7 +71,18 @@ export default function AdminUsersPage() {
             </button>
           ))}
         </div>
-        <div className="relative sm:w-72">
+        <div className="flex items-center gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            aria-label="Filter by account status"
+            className="h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent"
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <div className="relative sm:w-72">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
@@ -78,6 +93,7 @@ export default function AdminUsersPage() {
             placeholder="Search name, email, code…"
             className="w-full pl-9 pr-3 h-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange focus:border-transparent"
           />
+          </div>
         </div>
       </div>
 
@@ -109,7 +125,10 @@ export default function AdminUsersPage() {
                               {initials(u.name, u.email)}
                             </span>
                             <div className="min-w-0">
-                              <p className="font-medium text-brand-dark truncate">{u.name || '—'}</p>
+                              <p className="font-medium text-brand-dark flex items-baseline">
+                                <span className="truncate">{u.name || '—'}</span>
+                                {!u.isActive && <span className="ml-2 shrink-0 text-[10px] font-semibold uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Inactive</span>}
+                              </p>
                               <p className="text-gray-400 text-xs truncate">{u.businessName || u.email}</p>
                             </div>
                           </div>
