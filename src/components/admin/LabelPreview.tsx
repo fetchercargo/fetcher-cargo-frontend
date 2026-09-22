@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { RenderedLabel } from '@/lib/labels';
+import PdfCanvasPreview from '@/components/admin/PdfCanvasPreview';
 
 // LabelPreview shows a rendered PDF and offers the SAME bytes as the PDF
 // download.
@@ -54,9 +55,8 @@ export default function LabelPreview({ render, filename, stale, disabled, disabl
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [unprintable, setUnprintable] = useState('');
-  // The PNG action converts the PDF the iframe is displaying, so the blob is
-  // kept next to its object URL. A ref, not state — nothing renders from it.
-  const blobRef = useRef<Blob | null>(null);
+  // The preview and PNG export both read the exact PDF behind Save as PDF.
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageStatus, setImageStatus] = useState('');
   const [imageError, setImageError] = useState('');
@@ -78,7 +78,7 @@ export default function LabelPreview({ render, filename, stale, disabled, disabl
     setError('');
     try {
       const { blob, unprintable: bad } = await render();
-      blobRef.current = blob;
+      setPreviewBlob(blob);
       setUnprintable(bad);
       const next = URL.createObjectURL(blob);
       // Revoke the one being replaced, not the new one.
@@ -100,7 +100,7 @@ export default function LabelPreview({ render, filename, stale, disabled, disabl
   // One page downloads a single .png at 200 DPI; several pages download one
   // .zip of numbered PNGs, one per sheet. Nothing is re-rendered on the server.
   async function saveImage() {
-    const blob = blobRef.current;
+    const blob = previewBlob;
     if (imageBusy || busy || !blob) return;
     setImageBusy(true);
     setImageError('');
@@ -123,8 +123,6 @@ export default function LabelPreview({ render, filename, stale, disabled, disabl
       setImageBusy(false);
     }
   }
-
-  const frameClass = aspect === 'a4' ? 'aspect-[210/297]' : 'aspect-[2/3]';
 
   return (
     <div className="flex flex-col gap-3">
@@ -200,25 +198,20 @@ export default function LabelPreview({ render, filename, stale, disabled, disabl
         </p>
       )}
 
-      <div className={`${frameClass} w-full max-w-md rounded-xl border border-gray-200 bg-gray-50 overflow-hidden`}>
-        {url ? (
-          <iframe
-            src={url}
-            title="Label preview"
-            className={`w-full h-full ${stale ? 'opacity-50' : ''} transition-opacity`}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center p-6 text-center text-sm text-gray-400">
-            {emptyHint}
-          </div>
-        )}
-      </div>
+      {url && previewBlob ? (
+        <PdfCanvasPreview key={url} blob={previewBlob} aspect={aspect} stale={stale} />
+      ) : (
+        <div
+          className={`${aspect === 'a4' ? 'aspect-[210/297]' : 'aspect-[2/3]'} w-full max-w-md rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center p-6 text-center text-sm text-gray-400`}
+        >
+          {emptyHint}
+        </div>
+      )}
 
       {url && (
         <p className="text-xs text-gray-400">
           Save as PDF keeps the exact preview and its print size. Save as PNG makes a high-resolution image of this
-          preview; multiple sheets download as one zip of numbered PNGs. If the preview does not display in your
-          browser, open it in a new tab.
+          preview; multiple sheets download as one zip of numbered PNGs.
         </p>
       )}
     </div>

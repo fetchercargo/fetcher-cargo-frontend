@@ -3,8 +3,8 @@
 // The previewed PDF is the artifact; a PNG is a raster CONVERSION of those
 // same bytes at print resolution, done entirely on this page. No new endpoint,
 // no upload, and no re-render of the form — the blob handed in is the one the
-// iframe is showing, so a stale preview converts to a stale image, exactly as
-// it would print.
+// on-page preview draws, so a stale preview converts to a stale image, exactly
+// as it would print.
 //
 // pdfjs-dist and fflate are imported inside these functions so neither the
 // libraries nor the worker reach the initial label-page bundle.
@@ -43,6 +43,18 @@ function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
+// Both the on-screen preview and PNG export open the exact PDF returned by the
+// label endpoint. Keep the worker local to the app, not a third-party CDN.
+export async function openLabelPdf(pdfBlob: Blob) {
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url,
+  ).toString();
+  const data = new Uint8Array(await pdfBlob.arrayBuffer());
+  return pdfjs.getDocument({ data, isEvalSupported: false }).promise;
+}
+
 // pdfToImageBundle converts a PDF blob to a downloadable PNG (single page) or
 // a zip of numbered PNGs (one per page). Pages are rasterised one at a time on
 // a single reused canvas — only the compressed PNG bytes are kept — and the
@@ -51,16 +63,7 @@ export async function pdfToImageBundle(
   pdfBlob: Blob,
   onProgress?: (progress: ImageProgress) => void,
 ): Promise<ImageBundle> {
-  const pdfjs = await import('pdfjs-dist');
-  // The worker is resolved from the pdfjs-dist copy bundled with the app —
-  // nothing is fetched from a third-party CDN.
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url,
-  ).toString();
-
-  const data = new Uint8Array(await pdfBlob.arrayBuffer());
-  const pdf = await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
+  const pdf = await openLabelPdf(pdfBlob);
   try {
     const canvas = document.createElement('canvas');
     if (typeof canvas.getContext !== 'function' || typeof canvas.toBlob !== 'function') {
