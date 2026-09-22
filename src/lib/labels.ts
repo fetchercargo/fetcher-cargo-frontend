@@ -1,9 +1,9 @@
 // Types + API calls for the label generators. Wire shapes mirror the Go model
 // (internal/model/label.go).
 //
-// Both render calls return a PDF, not JSON. Those bytes are the preview AND the
-// saved file — the browser displays exactly what Save writes, so there is no
-// second renderer that could drift out of step with the one on the server.
+// Both render calls return a PDF, not JSON. Those bytes are the preview and
+// the PDF download. PNG downloads are rasterized from that previewed PDF, so
+// there is no separate label-layout renderer to drift from the server's.
 
 export interface LabelAddress {
   name: string;
