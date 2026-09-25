@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BrandDots } from '@/components/BrandLoader';
+import ReadyTimePicker, { type ReadyTimeParts } from '@/components/ReadyTimePicker';
 import StateSelect from '@/components/StateSelect';
 import {
   MAX_PICKUP_FILES,
@@ -112,7 +113,11 @@ export default function PickupRequestForm() {
   const [fileNote, setFileNote] = useState<string | null>(null);
 
   const [readyDate, setReadyDate] = useState('');
-  const [readyTime, setReadyTime] = useState('');
+  const [readyTimeParts, setReadyTimeParts] = useState<ReadyTimeParts>({ hour: '', minute: '', period: '' });
+  const [timeError, setTimeError] = useState(false);
+  const readyTime = readyTimeParts.hour && readyTimeParts.minute && readyTimeParts.period
+    ? `${String(Number(readyTimeParts.hour) % 12 + (readyTimeParts.period === 'PM' ? 12 : 0)).padStart(2, '0')}:${readyTimeParts.minute}`
+    : '';
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -270,6 +275,12 @@ export default function PickupRequestForm() {
     e.preventDefault();
     if (submitting) return;
     setError(null);
+    if (!readyTime) {
+      setTimeError(true);
+      const missing = !readyTimeParts.hour ? 'hour' : !readyTimeParts.minute ? 'minute' : 'period';
+      document.getElementById(`readyTime-${missing}`)?.focus();
+      return;
+    }
     // Covering the whole handler (not just the POST) so the await on the
     // lookup cannot open a double-submit window.
     setSubmitting(true);
@@ -592,15 +603,7 @@ export default function PickupRequestForm() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="readyTime" className="text-sm font-medium text-brand-dark">Ready time</label>
-              <input
-                id="readyTime"
-                type="time"
-                value={readyTime}
-                onChange={(e) => setReadyTime(e.target.value)}
-                required
-                className={inputCls}
-              />
+              <ReadyTimePicker value={readyTimeParts} onChange={setReadyTimeParts} invalid={timeError && !readyTime} />
             </div>
           </div>
 
