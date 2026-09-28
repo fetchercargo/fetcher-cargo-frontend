@@ -27,6 +27,97 @@ body {
   line-height: 1.7;
 }
 
+/* A compact, always-visible horizontal control for wide shipment tables. */
+.shipment-scroll-range {
+  appearance: none;
+  height: 32px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.shipment-scroll-range:focus-visible {
+  outline: none;
+}
+
+.shipment-scroll-range::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.shipment-scroll-range::-moz-range-track {
+  height: 5px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.shipment-scroll-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 56px;
+  height: 14px;
+  margin-top: -4.5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #9ca3af;
+  box-shadow: 0 0 0 1px #d1d5db;
+}
+
+.shipment-scroll-range::-moz-range-thumb {
+  width: 52px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #9ca3af;
+  box-shadow: 0 0 0 1px #d1d5db;
+}
+
+.shipment-scroll-range:hover::-webkit-slider-thumb,
+.shipment-scroll-range:focus-visible::-webkit-slider-thumb {
+  background: #f08c2a;
+}
+
+.shipment-scroll-range:hover::-moz-range-thumb,
+.shipment-scroll-range:focus-visible::-moz-range-thumb {
+  background: #f08c2a;
+}
+
+.shipment-scroll-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px #ffedd5;
+}
+
+.shipment-scroll-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px #ffedd5;
+}
+
+/* The scroll area clips the table header to the card's rounded corners. Under
+   the scroll control its top corners are square instead, so the header meets
+   the control's straight edge. */
+.table-scroll-control + .shipments-horizontal-scroll {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* Match the table's native scrollbar to the same neutral track. */
+.shipments-horizontal-scroll {
+  scrollbar-color: #9ca3af #e5e7eb;
+  scrollbar-width: auto;
+}
+
+.shipments-horizontal-scroll::-webkit-scrollbar {
+  height: 12px;
+}
+
+.shipments-horizontal-scroll::-webkit-scrollbar-track {
+  background: #e5e7eb;
+  border-radius: 999px;
+}
+
+.shipments-horizontal-scroll::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border: 2px solid #e5e7eb;
+  border-radius: 999px;
+}
+
 /* ── Select chevron ───────────────────────────────────────────────────────
    Native <select> draws its arrow hard against the right border, which sits
    tighter than the chevrons in our own dropdown buttons (ColumnPicker,

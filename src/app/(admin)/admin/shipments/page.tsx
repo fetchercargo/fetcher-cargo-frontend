@@ -13,6 +13,7 @@ import ColumnPicker, { SHIPMENT_COLUMNS, DEFAULT_COLUMN_KEYS, type ShipmentColum
 import { titleCase, formatDateTime, type AdminShipmentListItem, type ClientOption } from '@/lib/admin';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
+import HorizontalScrollArea from '@/components/admin/HorizontalScrollArea';
 
 export default function AdminShipmentsListPage() {
   const router = useRouter();
@@ -218,9 +219,10 @@ export default function AdminShipmentsListPage() {
             <p className="text-gray-400 text-sm mt-1">Try adjusting or clearing the filters.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-gray-200">
+            {/* The scroll area keeps its own scroll state, so scrolling never re-renders these rows. */}
+            <HorizontalScrollArea id="admin-shipments-table-scroll" label="Scroll shipment columns horizontally">
+              <table className="w-full min-w-max text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-left text-gray-500">
                     {visibleColumns.map((c) => (
@@ -236,7 +238,7 @@ export default function AdminShipmentsListPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </HorizontalScrollArea>
           </div>
         )}
       </div>
