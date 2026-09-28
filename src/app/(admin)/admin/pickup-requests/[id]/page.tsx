@@ -9,6 +9,7 @@ import {
   FALLBACK_PICKUP_STATUSES,
   fetchPickupStatuses,
   pickupFileUrl,
+  setPickupRequestRemarks,
   setPickupRequestStatus,
   type PickupRequest,
   type PickupRequestFile,
@@ -71,6 +72,8 @@ export default function AdminPickupRequestDetailPage() {
   const statusColors = statusMap(statuses);
   const [statusDraft, setStatusDraft] = useState('');
   const [savingStatus, setSavingStatus] = useState(false);
+  const [remarksDraft, setRemarksDraft] = useState('');
+  const [savingRemarks, setSavingRemarks] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -85,20 +88,15 @@ export default function AdminPickupRequestDetailPage() {
         if (!active) return;
         if (res.status === 404) { setState('notfound'); return; }
         if (!res.ok) { setState('error'); return; }
-        setData((await res.json()) as PickupRequest);
+        const request = (await res.json()) as PickupRequest;
+        setData(request);
+        setStatusDraft(request.status);
+        setRemarksDraft(request.remarks ?? '');
         setState('ok');
       })
       .catch(() => { if (active) setState('error'); });
     return () => { active = false; };
   }, [id]);
-
-  // The status select can only mount its draft once the request has loaded, so
-  // it syncs here. Deferred to a microtask only to satisfy the repo's
-  // react-hooks/set-state-in-effect lint rule (same note as the shipments grid).
-  useEffect(() => {
-    if (!data) return;
-    queueMicrotask(() => setStatusDraft(data.status));
-  }, [data]);
 
   async function saveStatus() {
     if (!data || savingStatus) return;
@@ -114,12 +112,35 @@ export default function AdminPickupRequestDetailPage() {
       }
       // The PUT returns only {ok}; carry the chosen status into the local copy
       // so the header badge follows without a refetch.
-      setData({ ...data, status: statusDraft });
+      setData((current) => current ? { ...current, status: statusDraft } : current);
       setNotice('Status updated.');
     } catch {
       setError('Unable to connect. Please try again.');
     } finally {
       setSavingStatus(false);
+    }
+  }
+
+  async function saveRemarks() {
+    if (!data || savingRemarks) return;
+    const remarks = remarksDraft.trim();
+    setSavingRemarks(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await setPickupRequestRemarks(data.id, remarks);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error || 'Could not save remarks.');
+        return;
+      }
+      setData((current) => current ? { ...current, remarks: remarks || null } : current);
+      setRemarksDraft(remarks);
+      setNotice('Remarks saved.');
+    } catch {
+      setError('Unable to connect. Please try again.');
+    } finally {
+      setSavingRemarks(false);
     }
   }
 
@@ -232,6 +253,32 @@ export default function AdminPickupRequestDetailPage() {
             className="px-4 py-2 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {savingStatus ? 'Updating…' : 'Update status'}
+          </button>
+        </div>
+      </section>
+
+      <section className="mt-4 bg-white rounded-xl border border-gray-200 p-5">
+        <label htmlFor="pickup-remarks" className="text-sm font-semibold text-brand-dark">Remarks</label>
+        <p className="mt-1 text-xs text-gray-500">Internal note for the pickup team.</p>
+        <textarea
+          id="pickup-remarks"
+          rows={3}
+          maxLength={1000}
+          disabled={savingRemarks}
+          value={remarksDraft}
+          onChange={(e) => setRemarksDraft(e.target.value)}
+          placeholder="Add a note about this pickup request"
+          className={`${inputCls} mt-3 resize-y disabled:opacity-60`}
+        />
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-400">{remarksDraft.length}/1000</span>
+          <button
+            type="button"
+            onClick={saveRemarks}
+            disabled={savingRemarks || remarksDraft.trim() === (data.remarks ?? '')}
+            className="px-4 py-2 bg-brand-orange text-white text-sm font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {savingRemarks ? 'Saving…' : 'Save remarks'}
           </button>
         </div>
       </section>

@@ -113,6 +113,7 @@ export interface PickupRequest {
   awbCount: number;
   readyAt: string;
   status: string;
+  remarks: string | null;
   verifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -137,6 +138,7 @@ export interface PickupRequestListItem {
   awbCount: number;
   readyAt: string;
   status: string;
+  remarks: string | null;
   verifiedAt: string | null;
   createdAt: string;
 }
@@ -254,13 +256,14 @@ export async function resendPickupOTP(ref: string, captchaToken: string, captcha
 
 // ---- Admin -----------------------------------------------------------------
 
-// FALLBACK_PICKUP_STATUSES mirrors the seeded built-ins (migration 0022). Used
+// FALLBACK_PICKUP_STATUSES mirrors the seeded built-ins (migrations 0022 and 0026). Used
 // when /api/admin/pickup-statuses can't be reached so badges never render
 // blank — same role FALLBACK_STATUSES plays for shipments.
 export const FALLBACK_PICKUP_STATUSES: PickupStatus[] = [
   { id: -1, code: 'NEW', label: 'New', color: 'blue', kind: 'normal', sortOrder: 10, isActive: true, isBuiltin: true },
   { id: -2, code: 'SCHEDULED', label: 'Scheduled', color: 'purple', kind: 'normal', sortOrder: 20, isActive: true, isBuiltin: true },
-  { id: -3, code: 'PICKED-UP', label: 'Picked-Up', color: 'green', kind: 'normal', sortOrder: 30, isActive: true, isBuiltin: true },
+  { id: -5, code: 'DELAYED', label: 'Delayed', color: 'amber', kind: 'exception', sortOrder: 25, isActive: true, isBuiltin: true },
+  { id: -3, code: 'PICKED-UP', label: 'Picked-Up', color: 'green', kind: 'terminal', sortOrder: 30, isActive: true, isBuiltin: true },
   { id: -4, code: 'CANCELLED', label: 'Cancelled', color: 'red', kind: 'exception', sortOrder: 40, isActive: true, isBuiltin: true },
 ];
 
@@ -303,6 +306,14 @@ export async function setPickupRequestStatus(id: number, status: string): Promis
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
+  });
+}
+
+export async function setPickupRequestRemarks(id: number, remarks: string): Promise<Response> {
+  return fetch(`/api/admin/pickup-requests/${id}/remarks`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remarks }),
   });
 }
 

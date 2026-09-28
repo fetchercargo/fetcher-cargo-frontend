@@ -158,6 +158,7 @@ export default function AdminPickupRequestsPage() {
                     <th className="px-4 py-3 font-medium whitespace-nowrap">AWBs</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Ready at</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Remarks</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Submitted</th>
                   </tr>
                 </thead>
@@ -189,6 +190,9 @@ export default function AdminPickupRequestsPage() {
                         <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClasses(statusColors[r.status]?.color ?? 'purple')}`}>
                           {statusColors[r.status]?.label ?? r.status}
                         </span>
+                      </td>
+                      <td className="max-w-56 px-4 py-3 text-gray-600">
+                        <span className="block truncate" title={r.remarks ?? undefined}>{r.remarks || '—'}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDateTime(r.createdAt)}</td>
                     </tr>
