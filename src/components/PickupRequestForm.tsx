@@ -12,6 +12,7 @@ import {
   PICKUP_FILE_MIMES,
   fetchPickupLocations,
   pickupRateMessage,
+  readPickupFile,
   resendPickupOTP,
   submitPickupRequest,
   verifyPickupRequest,
@@ -22,6 +23,8 @@ import {
 
 // The backend caps the form at 50 AWBs (pickup service); the input matches.
 const MAX_AWBS = 50;
+
+const MB = 1024 * 1024;
 
 /** Overlays the live array onto the remembered one, so edits made since the
  *  last resize win and anything hidden below the current count is kept. */
@@ -74,6 +77,10 @@ interface ChosenFile {
   url: string | null; // image previews only; PDFs render as a tile
 }
 
+function attachedBytes(rows: ChosenFile[][]): number {
+  return rows.reduce((n, r) => n + r.reduce((s, c) => s + c.file.size, 0), 0);
+}
+
 type Step = 'form' | 'verify' | 'done';
 
 export default function PickupRequestForm() {
@@ -105,12 +112,27 @@ export default function PickupRequestForm() {
   // is proof for ONE box, so the picker lives on the AWB row, and a row may
   // legitimately stay empty — photos are optional per AWB.
   const [awbFiles, setAwbFiles] = useState<ChosenFile[][]>([[]]);
+  // The latest rows, set together with awbFiles (see commitFiles). Reading a
+  // chosen file finishes after later renders, so its cap checks must see what
+  // is attached now, not what an older render captured.
+  const filesRef = useRef<ChosenFile[][]>([[]]);
   // The full history behind awbs/awbFiles. Lowering the shipment count hides
   // rows instead of destroying them, so raising it again restores what was
   // typed and attached.
   const keptAwbs = useRef<string[]>(['']);
   const keptFiles = useRef<ChosenFile[][]>([[]]);
-  const [fileNote, setFileNote] = useState<string | null>(null);
+  // Refusals, keyed by AWB row and shown under that row. One note under the
+  // whole list was off-screen on a phone, so a refused photo looked like a
+  // tap that did nothing.
+  const [fileNotes, setFileNotes] = useState<Record<number, string>>({});
+  // Adds still reading their files, per row. Submit waits for them: sending
+  // while a read was in flight would leave out photos the user just chose.
+  const [readingRows, setReadingRows] = useState<Record<number, number>>({});
+  const reading = Object.values(readingRows).some((n) => n > 0);
+  // Adds run one after another, each against the rows the previous one left.
+  const addChain = useRef<Promise<void>>(Promise.resolve());
+  // Upload progress while submitting, 0-100; null when nothing is uploading.
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
 
   const [readyDate, setReadyDate] = useState('');
   const [readyTimeParts, setReadyTimeParts] = useState<ReadyTimeParts>({ hour: '', minute: '', period: '' });
@@ -204,76 +226,111 @@ export default function PickupRequestForm() {
       keptAwbs.current = foldInto(keptAwbs.current, prev);
       return sized(keptAwbs.current, n, () => '');
     });
-    setAwbFiles((prev) => {
-      keptFiles.current = foldInto(keptFiles.current, prev);
-      return sized(keptFiles.current, n, () => []);
+    keptFiles.current = foldInto(keptFiles.current, filesRef.current);
+    commitFiles(sized(keptFiles.current, n, () => []));
+  }
+
+  // Every change to the photo rows goes through here, so filesRef never lags.
+  function commitFiles(next: ChosenFile[][]) {
+    filesRef.current = next;
+    setAwbFiles(next);
+  }
+
+  function setRowNote(awbIdx: number, note: string | null) {
+    setFileNotes((prev) => {
+      const next = { ...prev };
+      if (note) next[awbIdx] = note;
+      else delete next[awbIdx];
+      return next;
     });
   }
 
-  // Adds photos to ONE AWB's row, enforcing every cap locally so the server
-  // never has to refuse what the form could have caught: type and size per
-  // file, the per-AWB cap, the per-request count cap, and the per-request
-  // TOTAL byte cap. Every rejection names the AWB it belongs to, because the
-  // controls are per box.
+  function markReading(awbIdx: number, delta: number) {
+    setReadingRows((prev) => ({ ...prev, [awbIdx]: (prev[awbIdx] ?? 0) + delta }));
+  }
+
+  // Adds photos to ONE AWB's row. The FileList is copied now because the
+  // input is cleared straight after; the files are read in attachFiles.
   function addFiles(awbIdx: number, list: FileList | null) {
-    if (!list) return;
-    const label = `AWB ${awbIdx + 1}${awbs[awbIdx] && awbs[awbIdx].trim() ? ` (${awbs[awbIdx].trim()})` : ''}`;
-    const rejected: string[] = [];
-    const accepted: File[] = [];
-    for (const f of Array.from(list)) {
-      if (!PICKUP_FILE_MIMES.includes(f.type)) {
-        rejected.push(`${label}: ${f.name} is not a JPEG, PNG, WebP or PDF`);
-      } else if (f.size > MAX_PICKUP_FILE_BYTES) {
-        rejected.push(`${label}: ${f.name} is over 5 MB`);
-      } else {
-        accepted.push(f);
-      }
-    }
-    const row = awbFiles[awbIdx] ?? [];
-    let take = accepted.slice(0, Math.max(0, MAX_PICKUP_FILES_PER_AWB - row.length));
-    if (take.length < accepted.length) {
-      rejected.push(`${label}: at most ${MAX_PICKUP_FILES_PER_AWB} photos per AWB`);
-    }
-    const attached = awbFiles.reduce((n, r) => n + r.length, 0);
-    const room = MAX_PICKUP_FILES - attached;
-    if (take.length > room) {
-      take = take.slice(0, Math.max(0, room));
-      rejected.push(`at most ${MAX_PICKUP_FILES} photos per request`);
-    }
-    // The whole-request byte cap: the server refuses the upload when the
-    // images total over the limit, so a form that checked only the per-file
-    // and count caps let a compliant-looking upload leave with a 413 whose
-    // message told the user to do exactly what they had just done.
-    const totalMB = MAX_PICKUP_TOTAL_BYTES / (1024 * 1024);
-    let used = awbFiles.reduce((n, r) => n + r.reduce((s, c) => s + c.file.size, 0), 0);
-    const fitting: File[] = [];
-    for (const f of take) {
-      if (used + f.size > MAX_PICKUP_TOTAL_BYTES) {
-        rejected.push(`${label}: ${f.name} would push the request over ${totalMB} MB in total`);
+    if (!list || list.length === 0) return;
+    const picked = Array.from(list);
+    markReading(awbIdx, 1);
+    addChain.current = addChain.current
+      .then(() => attachFiles(awbIdx, picked))
+      .catch(() => {
+        // attachFiles reports its own refusals; this only stops one surprise
+        // from blocking every later add.
+      })
+      .finally(() => markReading(awbIdx, -1));
+  }
+
+  // Enforces every cap locally so the server never has to refuse what the
+  // form could have caught: photos per AWB and per request, size per file,
+  // and the request's TOTAL size — the server refuses a request over it, so
+  // checking only the other caps let a compliant-looking upload fail with a
+  // 413. Files are taken in order; one is read only once it has passed the
+  // checks that need no reading, so an oversized video never loads.
+  async function attachFiles(awbIdx: number, picked: File[]) {
+    const notes: string[] = [];
+    const added: ChosenFile[] = [];
+    let overRow = 0;
+    let overRequest = 0;
+    for (const f of picked) {
+      // Against the rows as they are NOW, plus what this add has taken.
+      const rows = filesRef.current;
+      const addedBytes = added.reduce((s, c) => s + c.file.size, 0);
+      if ((rows[awbIdx]?.length ?? 0) + added.length >= MAX_PICKUP_FILES_PER_AWB) {
+        overRow++;
         continue;
       }
-      used += f.size;
-      fitting.push(f);
+      if (rows.reduce((n, r) => n + r.length, 0) + added.length >= MAX_PICKUP_FILES) {
+        overRequest++;
+        continue;
+      }
+      if (f.size > MAX_PICKUP_FILE_BYTES) {
+        notes.push(`${f.name} is over ${MAX_PICKUP_FILE_BYTES / MB} MB`);
+        continue;
+      }
+      if (attachedBytes(rows) + addedBytes + f.size > MAX_PICKUP_TOTAL_BYTES) {
+        notes.push(`${f.name} would push the request over ${MAX_PICKUP_TOTAL_BYTES / MB} MB in total`);
+        continue;
+      }
+      const checked = await readPickupFile(f);
+      if (!checked.ok) {
+        notes.push(`${f.name} ${checked.problem}`);
+        continue;
+      }
+      added.push({ file: checked.file, url: checked.file.type.startsWith('image/') ? URL.createObjectURL(checked.file) : null });
     }
-    take = fitting;
-    setFileNote(rejected.length ? rejected.join(' · ') : null);
-    if (take.length) {
-      setAwbFiles(awbFiles.map((r, i) => (
-        i === awbIdx ? [...r, ...take.map((f) => ({ file: f, url: f.type.startsWith('image/') ? URL.createObjectURL(f) : null }))] : r
-      )));
+    if (overRow) {
+      notes.push(`${overRow} ${overRow === 1 ? 'photo was' : 'photos were'} not added — at most ${MAX_PICKUP_FILES_PER_AWB} per AWB`);
     }
+    if (overRequest) {
+      notes.push(`${overRequest} ${overRequest === 1 ? 'photo was' : 'photos were'} not added — at most ${MAX_PICKUP_FILES} per request`);
+    }
+    if (added.length) {
+      const rows = filesRef.current;
+      if (awbIdx < rows.length) {
+        commitFiles(rows.map((r, i) => (i === awbIdx ? [...r, ...added] : r)));
+      } else {
+        // The shipment count was lowered while these were read: keep them
+        // with the hidden row, which is restored if the count goes back up.
+        keptFiles.current[awbIdx] = [...(keptFiles.current[awbIdx] ?? []), ...added];
+      }
+    }
+    setRowNote(awbIdx, notes.length ? notes.join(' · ') : null);
   }
 
   // Preview URLs are deliberately not revoked: they point at File data the
   // state holds anyway, and the registry entries die with the document.
   function removeFile(awbIdx: number, j: number) {
-    setAwbFiles(awbFiles.map((r, i) => (i === awbIdx ? r.filter((_, idx) => idx !== j) : r)));
-    setFileNote(null);
+    commitFiles(filesRef.current.map((r, i) => (i === awbIdx ? r.filter((_, idx) => idx !== j) : r)));
+    setRowNote(awbIdx, null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || reading) return;
     setError(null);
     if (!readyTime) {
       setTimeError(true);
@@ -293,20 +350,24 @@ export default function PickupRequestForm() {
         setError('Choose when the shipments will be ready.');
         return;
       }
-      const req = await submitPickupRequest({
-        captchaToken,
-        captchaAnswer: captchaAnswer.trim(),
-        customerId: customerId.trim(),
-        email: email.trim(),
-        locationId: typed ? null : loc.chosen,
-        address: typed ? address.trim() : '',
-        city: typed ? city.trim() : '',
-        state: typed ? addrState : '',
-        pincode: typed ? pincode.trim() : '',
-        awbs: awbs.map((a) => a.trim()),
-        readyAt: ready.toISOString(),
-        files: awbFiles.map((row) => row.map((c) => c.file)),
-      });
+      const hasPhotos = awbFiles.some((row) => row.length > 0);
+      const req = await submitPickupRequest(
+        {
+          captchaToken,
+          captchaAnswer: captchaAnswer.trim(),
+          customerId: customerId.trim(),
+          email: email.trim(),
+          locationId: typed ? null : loc.chosen,
+          address: typed ? address.trim() : '',
+          city: typed ? city.trim() : '',
+          state: typed ? addrState : '',
+          pincode: typed ? pincode.trim() : '',
+          awbs: awbs.map((a) => a.trim()),
+          readyAt: ready.toISOString(),
+          files: awbFiles.map((row) => row.map((c) => c.file)),
+        },
+        hasPhotos ? (fraction) => setUploadPct(Math.min(100, Math.floor(fraction * 100))) : undefined,
+      );
       setCreated(req);
       setCode('');
       setVerifyError(null);
@@ -325,6 +386,7 @@ export default function PickupRequestForm() {
       fetchCaptcha();
     } finally {
       setSubmitting(false);
+      setUploadPct(null);
     }
   }
 
@@ -339,6 +401,10 @@ export default function PickupRequestForm() {
     } catch (e) {
       if (e instanceof PickupError && e.status === 401) {
         setVerifyError('That code is invalid or has expired. Please try again.');
+      } else if (e instanceof PickupError && e.status === 409) {
+        // Already verified: an earlier attempt went through and only its
+        // answer was lost on the way back. The request is in.
+        setStep('done');
       } else {
         setVerifyError(pickupRateMessage(e, 'Could not verify your code.'));
       }
@@ -362,6 +428,9 @@ export default function PickupRequestForm() {
     } catch (e) {
       if (e instanceof PickupError && e.status === 403) {
         setVerifyError('That CAPTCHA answer is incorrect or has expired. Please try again.');
+      } else if (e instanceof PickupError && e.status === 409) {
+        // The code was already accepted (see handleVerify): nothing to resend.
+        setStep('done');
       } else {
         setVerifyError(pickupRateMessage(e, 'Could not resend the code.'));
       }
@@ -528,7 +597,7 @@ export default function PickupRequestForm() {
                 total, which the per-file and count rules cannot express. */}
             <p className="text-xs text-gray-400">
               Up to {MAX_PICKUP_FILES_PER_AWB} photos per AWB, {MAX_PICKUP_FILES} per request and{' '}
-              {MAX_PICKUP_TOTAL_BYTES / (1024 * 1024)} MB in total, 5 MB each — JPEG, PNG, WebP or PDF.
+              {MAX_PICKUP_TOTAL_BYTES / MB} MB in total, {MAX_PICKUP_FILE_BYTES / MB} MB each — JPEG, PNG, WebP or PDF.
             </p>
             {awbs.map((a, i) => (
               <div key={i} className="flex flex-col gap-2 border border-gray-200 rounded-lg p-3">
@@ -556,9 +625,12 @@ export default function PickupRequestForm() {
                     />
                   </label>
                   <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                    {awbFiles[i]?.length ?? 0}/{MAX_PICKUP_FILES_PER_AWB} photos
+                    {readingRows[i] ? 'Adding…' : `${awbFiles[i]?.length ?? 0}/${MAX_PICKUP_FILES_PER_AWB} photos`}
                   </span>
                 </div>
+                {fileNotes[i] && (
+                  <p role="status" className="text-xs text-amber-700">{fileNotes[i]}</p>
+                )}
                 {(awbFiles[i]?.length ?? 0) > 0 && (
                   <ul className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                     {awbFiles[i].map(({ file, url }, j) => (
@@ -587,7 +659,6 @@ export default function PickupRequestForm() {
                 )}
               </div>
             ))}
-            {fileNote && <p className="text-xs text-amber-700">{fileNote}</p>}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -611,18 +682,24 @@ export default function PickupRequestForm() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || reading}
             className="w-full px-8 py-3 bg-brand-orange text-white font-semibold rounded-lg hover:bg-brand-coral transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>
                 <BrandDots />
-                Submitting...
+                {uploadPct === null ? 'Submitting...' : uploadPct < 100 ? `Uploading photos… ${uploadPct}%` : 'Almost done…'}
               </>
+            ) : reading ? (
+              'Adding photos…'
             ) : (
               'Request pickup'
             )}
           </button>
+          {/* A phone that locks or switches apps can pause the upload. */}
+          {submitting && uploadPct !== null && (
+            <p className="-mt-2 text-xs text-gray-500 text-center">Keep this page open until the upload finishes.</p>
+          )}
         </form>
       )}
 
