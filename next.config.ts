@@ -10,15 +10,24 @@ const BACKEND_API_URL =
   process.env.BACKEND_API_URL ?? "https://fetcher-cargo-backend-tsxw.onrender.com";
 
 const nextConfig: NextConfig = {
+  // The pickup upload route (src/app/api/pickup/requests/route.ts) forwards to
+  // the backend itself. Baked in at build time, like the rewrite target below,
+  // so both always reach the same backend.
+  env: {
+    PICKUP_UPLOAD_BACKEND_URL: BACKEND_API_URL,
+  },
   experimental: {
-    // Next copies every request body it forwards through a buffer that stops
-    // at 10 MB by default and silently drops the rest. The docs say this only
-    // applies with a proxy.ts file; in 16.2.2 it also cuts these rewrites —
-    // verified by sending 12 MB through one: 10 MB arrived and the backend
-    // waited for the rest until it timed out. A pickup request with more than
-    // 10 MB of photos failed that way. 64 MB clears the largest body the
-    // backend accepts: pickup photos, 60 MB plus the form fields.
-    proxyClientMaxBodySize: "64mb",
+    // Next copies every request body it forwards through the rewrite below
+    // into memory, keeps the copy until the request ends, and silently drops
+    // anything past this limit (10 MB by default). The docs say this only
+    // applies with a proxy.ts file; in 16.2.2 it also applies to these
+    // rewrites — verified by sending 12 MB through one: 10 MB arrived and the
+    // backend waited for the rest until it timed out. Pickup photos no longer
+    // come this way (their route streams), so the limit only has to clear the
+    // largest other body the backend accepts: a bulk shipment create, 32 MiB
+    // of JSON (maxBulkJSONBytes; admin documents are 25 MiB). Every MB here is
+    // memory any caller can make the website hold per request.
+    proxyClientMaxBodySize: "33mb",
     // How long a forwarded request may sit with no bytes moving before Next
     // gives up and answers 500 (default 30 s). Storing a large pickup
     // request, emailing its code, or copying its photos to Drive can take
