@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
+import ShipmentLabels from '@/components/dashboard/ShipmentLabels';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import { type CustomFieldValue, formatCustomFieldValue } from '@/lib/customFields';
 
@@ -135,6 +136,17 @@ export default function ShipmentDetailPage() {
     };
   }, [id]);
 
+  // The list links here with #labels, but the browser settles that anchor
+  // before the client-side fetch has rendered the section. Once the data is
+  // in, the jump has to be made again.
+  useEffect(() => {
+    if (window.location.hash !== '#labels') return;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById('labels')?.scrollIntoView({ block: 'start' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [data]);
+
   const back = (
     <Link href="/dashboard/shipments" className="text-sm font-semibold text-brand-gray hover:text-brand-orange transition-colors">
       ← My Shipments
@@ -169,6 +181,16 @@ export default function ShipmentDetailPage() {
   }
 
   const updates = data.updates.filter((u) => u.text && u.text.trim());
+  const awbAssigned = (data.awb ?? '').trim().length > 0;
+  // Box labels are counted the way the server counts pieces — SQL's SUM over
+  // the parcel rows, which skips rows with no count and falls back to the
+  // shipment header when none has one — so the suggested box count matches
+  // the pieces printed on the label.
+  const countedParcels = (data.parcels ?? []).filter((p) => p.noOfPieces != null);
+  const piecesOnRecord =
+    countedParcels.length > 0
+      ? countedParcels.reduce((sum, p) => sum + (p.noOfPieces ?? 0), 0)
+      : data.noOfPieces ?? 0;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -184,6 +206,22 @@ export default function ShipmentDetailPage() {
         </span>
         {data.isDg && (
           <span className="text-[11px] font-semibold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded">DG</span>
+        )}
+        {awbAssigned ? (
+          <a
+            href="#labels"
+            className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-300 text-brand-dark hover:border-brand-orange hover:text-brand-orange transition-colors"
+          >
+            Print label
+          </a>
+        ) : (
+          <span
+            aria-disabled="true"
+            title="Label available once an AWB is assigned"
+            className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-300 text-brand-dark opacity-50 cursor-not-allowed"
+          >
+            Print label
+          </span>
         )}
       </div>
       <p className="text-gray-500 text-sm mt-1">Booked {fmtDateTime(data.createdAt)}</p>
@@ -263,6 +301,8 @@ export default function ShipmentDetailPage() {
             ))}
           </Section>
         )}
+
+        <ShipmentLabels shipmentId={data.id} awb={data.awb} piecesOnRecord={piecesOnRecord} />
 
         {/* Timeline */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">

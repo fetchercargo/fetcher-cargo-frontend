@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import LabelPreview from '@/components/admin/LabelPreview';
+import LabelPreview from '@/components/labels/LabelPreview';
 import { MAX_BOXES, downloadName, fetchPrefill, renderBoxLabels, suggestAWBs } from '@/lib/labels';
 
 // The box label generator: an AWB and a box count in, a sheet of stickers out.

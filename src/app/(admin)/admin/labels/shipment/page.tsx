@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { MODES } from '@/lib/admin';
-import LabelPreview from '@/components/admin/LabelPreview';
+import LabelPreview from '@/components/labels/LabelPreview';
 import {
   downloadName,
   emptyLabel,

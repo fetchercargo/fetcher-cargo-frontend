@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { RenderedLabel } from '@/lib/labels';
-import PdfCanvasPreview from '@/components/admin/PdfCanvasPreview';
+import PdfCanvasPreview from '@/components/labels/PdfCanvasPreview';
 
 // LabelPreview shows a rendered PDF and offers the SAME bytes as the PDF
 // download.
@@ -33,6 +33,10 @@ interface Props {
   // get a frame the right way round.
   aspect: '4/6' | 'a4';
   emptyHint: string;
+  // unprintableAdvice closes the unprintable-characters warning with what the
+  // reader can do about it. An operator can retype the field; a client, whose
+  // label comes straight from their booking, cannot.
+  unprintableAdvice?: string;
 }
 
 // saveBlob hands a freshly made blob to the browser as a download. The object
@@ -49,7 +53,16 @@ function saveBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(href), 10_000);
 }
 
-export default function LabelPreview({ render, filename, stale, disabled, disabledReason, aspect, emptyHint }: Props) {
+export default function LabelPreview({
+  render,
+  filename,
+  stale,
+  disabled,
+  disabledReason,
+  aspect,
+  emptyHint,
+  unprintableAdvice = 'Retype those fields in English before printing.',
+}: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [previewFilename, setPreviewFilename] = useState(filename);
   const [busy, setBusy] = useState(false);
@@ -187,8 +200,8 @@ export default function LabelPreview({ render, filename, stale, disabled, disabl
       {unprintable && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" role="alert">
           Some characters in <strong>{unprintable}</strong> cannot be drawn by the label font and print as empty boxes.
-          This affects scripts the font does not carry — Devanagari, Tamil, Chinese, Arabic and the like. Retype those
-          fields in English before printing.
+          This affects scripts the font does not carry — Devanagari, Tamil, Chinese, Arabic and the like.{' '}
+          {unprintableAdvice}
         </p>
       )}
 

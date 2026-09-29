@@ -135,6 +135,45 @@ export async function renderBoxLabels(awb: string, boxes: number): Promise<Rende
 // MAX_BOXES mirrors labelpdf.MaxBoxes on the server.
 export const MAX_BOXES = 500;
 
+// ---- Client labels ----------------------------------------------------------
+//
+// A client prints labels for their OWN shipments only. The server builds the
+// label from the stored shipment, after checking it belongs to them, so these
+// calls send nothing but the shipment id and the fields no column holds —
+// never an address or an AWB.
+
+// ClientLabelExtras is all a client adds to their shipment's label. Both are
+// optional.
+export interface ClientLabelExtras {
+  eWayBillNo: string;
+  volumetricWeight: string;
+}
+
+// renderMyShipmentLabel returns the 4x6in PDF for one of the caller's own
+// shipments. A shipment with no AWB yet is refused (409) with a message that
+// says so; one that is not theirs is "not found" (404).
+export async function renderMyShipmentLabel(shipmentId: number, extras: ClientLabelExtras): Promise<RenderedLabel> {
+  const res = await fetch(`/api/shipments/${shipmentId}/label`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eWayBillNo: extras.eWayBillNo.trim(), volumetricWeight: extras.volumetricWeight.trim() }),
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not generate the label. Please try again.'));
+  return { blob: await res.blob(), unprintable: res.headers.get(UNPRINTABLE_HEADER) ?? '' };
+}
+
+// renderMyBoxLabels returns the A4 box labels, eight to a page, for one of the
+// caller's own shipments. The AWB printed on every box comes from the shipment.
+export async function renderMyBoxLabels(shipmentId: number, boxes: number): Promise<RenderedLabel> {
+  const res = await fetch(`/api/shipments/${shipmentId}/box-labels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ boxes }),
+  });
+  if (!res.ok) throw new Error(await errorFrom(res, 'Could not generate the box labels. Please try again.'));
+  return { blob: await res.blob(), unprintable: res.headers.get(UNPRINTABLE_HEADER) ?? '' };
+}
+
 // downloadName builds the filename Save offers, from an operator-typed AWB.
 // Anything outside [A-Za-z0-9._-] is dropped rather than escaped — an AWB has
 // no charset rule, and a filename is not the place to discover that.
