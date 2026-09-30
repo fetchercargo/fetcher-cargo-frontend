@@ -14,13 +14,67 @@ export type PickupStatusInput = StatusInput;
 // request may photograph some boxes and not others.
 export const MAX_PICKUP_FILES_PER_AWB = 5;
 export const MAX_PICKUP_FILES = 40; // per request, across every AWB
-export const MAX_PICKUP_FILE_BYTES = 5 * 1024 * 1024;
-// The WHOLE-request cap. It is the binding one — 40 files under 5 MB each can
-// still cross it — so the form sums sizes too; without that, an upload could
-// pass every other client check and die at the server with a 413 telling the
-// user to do exactly what they just did.
+// A 48-50 MP phone camera writes photos of 8-15 MB.
+export const MAX_PICKUP_FILE_BYTES = 15 * 1024 * 1024;
+// The WHOLE-request cap. It is the binding one — 40 files each under the
+// per-file cap can still cross it — so the form sums sizes too; without that,
+// an upload could pass every other client check and die at the server with a
+// 413 telling the user to do exactly what they just did.
 export const MAX_PICKUP_TOTAL_BYTES = 60 * 1024 * 1024;
 export const PICKUP_FILE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+// sniffPickupType names a file from its first bytes, using the signatures the
+// server's http.DetectContentType uses, so the form accepts exactly what the
+// server will. 'heic' is returned only to explain a refusal: it is what an
+// iPhone camera writes, and the server does not accept it.
+export function sniffPickupType(head: Uint8Array): string | 'heic' | null {
+  const at = (offset: number, bytes: number[]) => bytes.every((b, i) => head[offset + i] === b);
+  if (at(0, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+  if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+  if (at(0, [0x52, 0x49, 0x46, 0x46]) && at(8, [0x57, 0x45, 0x42, 0x50, 0x56, 0x50])) return 'image/webp'; // RIFF....WEBPVP
+  if (at(0, [0x25, 0x50, 0x44, 0x46, 0x2d])) return 'application/pdf'; // %PDF-
+  if (at(4, [0x66, 0x74, 0x79, 0x70])) { // an ISO media "ftyp" box
+    const brand = String.fromCharCode(...head.subarray(8, 12));
+    if (['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1'].includes(brand)) return 'heic';
+  }
+  return null;
+}
+
+export type PickupFileCheck = { ok: true; file: File } | { ok: false; problem: string };
+
+// readPickupFile reads a chosen file's bytes as soon as it is chosen and
+// returns an in-memory copy to upload later. Two reasons:
+//
+// - A phone's handle on a chosen file can go stale before submit (a cloud
+//   photo, a picker's temporary copy). The thumbnail showed, the form said
+//   the photo was attached, and the upload then failed. A copy taken now
+//   cannot go stale, and a file that cannot be read is refused now, beside
+//   the AWB it was meant for.
+// - The type comes from the bytes, as the server decides it. File.type is the
+//   browser's guess from the name, and some Android pickers leave it empty
+//   for ordinary photos, which the form used to refuse.
+export async function readPickupFile(f: File): Promise<PickupFileCheck> {
+  let buf: ArrayBuffer;
+  try {
+    buf = await f.arrayBuffer();
+  } catch {
+    buf = new ArrayBuffer(0);
+  }
+  if (buf.byteLength === 0) {
+    return { ok: false, problem: 'could not be read. If it is in a cloud album, download it to your phone first, then add it again.' };
+  }
+  if (buf.byteLength > MAX_PICKUP_FILE_BYTES) {
+    return { ok: false, problem: `is over ${MAX_PICKUP_FILE_BYTES / (1024 * 1024)} MB` };
+  }
+  const type = sniffPickupType(new Uint8Array(buf, 0, Math.min(16, buf.byteLength)));
+  if (type === 'heic') {
+    return { ok: false, problem: 'is a HEIC photo, which we cannot accept. On an iPhone, choose it from Photo Library (not Files) and it is sent as a JPEG.' };
+  }
+  if (!type) {
+    return { ok: false, problem: 'is not a JPEG, PNG, WebP or PDF' };
+  }
+  return { ok: true, file: new File([buf], f.name, { type, lastModified: f.lastModified }) };
+}
 
 // ---- Public form -----------------------------------------------------------
 
@@ -113,6 +167,7 @@ export interface PickupRequest {
   awbCount: number;
   readyAt: string;
   status: string;
+  remarks: string | null;
   verifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -137,6 +192,7 @@ export interface PickupRequestListItem {
   awbCount: number;
   readyAt: string;
   status: string;
+  remarks: string | null;
   verifiedAt: string | null;
   createdAt: string;
 }
@@ -162,7 +218,8 @@ async function pickupJson<T>(res: Response, fallback: string): Promise<T> {
 // can genuinely hit and should explain itself: 413 (the upload crossed the
 // whole-body cap — so name the TOTAL, which is the binding limit, not the
 // per-file rules the user may already have honoured) and 429 (a rate limit —
-// per IP or per mailbox). Anything else falls back to the server's message.
+// per IP or per mailbox). A request that never got an answer is explained
+// too. Anything else falls back to the server's message.
 export function pickupRateMessage(e: unknown, fallback: string): string {
   if (e instanceof PickupError) {
     if (e.status === 413) {
@@ -171,6 +228,11 @@ export function pickupRateMessage(e: unknown, fallback: string): string {
     if (e.status === 429) {
       return 'Too many requests — please wait a few minutes and try again.';
     }
+  }
+  // fetch rejects with a TypeError when no answer came back; its own message
+  // ("Failed to fetch", "Load failed") tells a customer nothing.
+  if (e instanceof TypeError) {
+    return 'Could not reach the server — check your connection and try again.';
   }
   return e instanceof Error ? e.message : fallback;
 }
@@ -204,11 +266,31 @@ export interface PickupSubmitForm {
   files: File[][];
 }
 
+// submitFailure explains a failed submit that the server did not explain
+// itself. Each message says the photos are still attached, because the form
+// keeps them: pressing the button again is all it takes.
+function submitFailure(status: number): string {
+  if (status === 0) {
+    return 'The connection dropped before your request was sent. Your photos are still attached — check your signal and try again.';
+  }
+  if (status === 408 || status === 504) {
+    return 'The upload took too long. Your photos are still attached — please try again on a stronger connection.';
+  }
+  return 'Your request did not go through. Your photos are still attached — please try again.';
+}
+
 // submitPickupRequest builds the multipart body itself so the field names live
 // in exactly one place (they must match the Go handler, which reads them by
 // string). Photos ride indexed names — files[0] for the first awb, files[1]
 // for the second — so each image is tied to the box it is proof for.
-export async function submitPickupRequest(form: PickupSubmitForm): Promise<PickupPublicRequest> {
+//
+// It sends with XMLHttpRequest rather than fetch for upload progress, which
+// fetch cannot report. Photos from a phone can take a minute to send, and a
+// button that only said "Submitting..." for that long looked stuck.
+export function submitPickupRequest(
+  form: PickupSubmitForm,
+  onUploadProgress?: (fraction: number) => void,
+): Promise<PickupPublicRequest> {
   const fd = new FormData();
   fd.append('captcha_token', form.captchaToken);
   fd.append('captcha_answer', form.captchaAnswer);
@@ -228,8 +310,33 @@ export async function submitPickupRequest(form: PickupSubmitForm): Promise<Picku
   form.awbs.forEach((a) => fd.append('awb', a));
   fd.append('readyAt', form.readyAt);
   form.files.forEach((row, i) => row.forEach((f) => fd.append(`files[${i}]`, f, f.name)));
-  const res = await fetch('/api/pickup/requests', { method: 'POST', body: fd });
-  return pickupJson(res, 'Could not submit your pickup request.');
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/pickup/requests');
+    if (onUploadProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) onUploadProgress(e.loaded / e.total);
+      };
+    }
+    xhr.onload = () => {
+      let data: { error?: string } = {};
+      try {
+        const parsed = JSON.parse(xhr.responseText);
+        if (parsed && typeof parsed === 'object') data = parsed;
+      } catch {
+        // Not JSON: an error page from something in between (the proxy, the host).
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as PickupPublicRequest);
+      } else {
+        reject(new PickupError(data.error || submitFailure(xhr.status), xhr.status));
+      }
+    };
+    // No status at all: the connection failed before any answer came back.
+    xhr.onerror = () => reject(new PickupError(submitFailure(0), 0));
+    xhr.onabort = () => reject(new PickupError(submitFailure(0), 0));
+    xhr.send(fd);
+  });
 }
 
 export async function verifyPickupRequest(ref: string, code: string): Promise<PickupPublicRequest> {
@@ -254,13 +361,14 @@ export async function resendPickupOTP(ref: string, captchaToken: string, captcha
 
 // ---- Admin -----------------------------------------------------------------
 
-// FALLBACK_PICKUP_STATUSES mirrors the seeded built-ins (migration 0022). Used
+// FALLBACK_PICKUP_STATUSES mirrors the seeded built-ins (migrations 0022 and 0026). Used
 // when /api/admin/pickup-statuses can't be reached so badges never render
 // blank — same role FALLBACK_STATUSES plays for shipments.
 export const FALLBACK_PICKUP_STATUSES: PickupStatus[] = [
   { id: -1, code: 'NEW', label: 'New', color: 'blue', kind: 'normal', sortOrder: 10, isActive: true, isBuiltin: true },
   { id: -2, code: 'SCHEDULED', label: 'Scheduled', color: 'purple', kind: 'normal', sortOrder: 20, isActive: true, isBuiltin: true },
-  { id: -3, code: 'PICKED-UP', label: 'Picked-Up', color: 'green', kind: 'normal', sortOrder: 30, isActive: true, isBuiltin: true },
+  { id: -5, code: 'DELAYED', label: 'Delayed', color: 'amber', kind: 'exception', sortOrder: 25, isActive: true, isBuiltin: true },
+  { id: -3, code: 'PICKED-UP', label: 'Picked-Up', color: 'green', kind: 'terminal', sortOrder: 30, isActive: true, isBuiltin: true },
   { id: -4, code: 'CANCELLED', label: 'Cancelled', color: 'red', kind: 'exception', sortOrder: 40, isActive: true, isBuiltin: true },
 ];
 
@@ -303,6 +411,14 @@ export async function setPickupRequestStatus(id: number, status: string): Promis
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
+  });
+}
+
+export async function setPickupRequestRemarks(id: number, remarks: string): Promise<Response> {
+  return fetch(`/api/admin/pickup-requests/${id}/remarks`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remarks }),
   });
 }
 

@@ -178,6 +178,7 @@ export default function MyShipmentsPage() {
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Pcs</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Weight</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Created</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Label</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -210,6 +211,19 @@ export default function MyShipmentsPage() {
                         {s.weightKg != null ? `${s.weightKg} kg` : '—'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDate(s.createdAt)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                        {(s.awb ?? '').trim() ? (
+                          <Link
+                            href={`/dashboard/shipments/${s.id}#labels`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-semibold text-brand-orange hover:text-brand-coral transition-colors"
+                          >
+                            Print
+                          </Link>
+                        ) : (
+                          <span className="text-gray-300" title="Label available once an AWB is assigned">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
