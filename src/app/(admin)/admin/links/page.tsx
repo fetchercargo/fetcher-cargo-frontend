@@ -5,6 +5,7 @@ import type { FC } from 'react';
 const DRIVE_URL = 'https://drive.google.com/drive/folders/1sHHmP7woZELac0c-WDKhUqo6Niw4QC3o';
 const BOOKING_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1YYcBE6RF6qpUNF7Hr-KJx6IYMS3dEci9qaJu6jEAkuU/edit';
 const TRACKING_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1gbY642V26yIgxv3iFjm1nSRsD5CeJ3UX0keb8lxPG8g/edit';
+const PICKUP_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1NEtD0im256vNY39G_LOQcKeTCo8qq_5xidNvgZU-ktA/edit';
 
 // Official Google Drive mark (tri-color triangle).
 const DriveLogo: FC = () => (
@@ -82,6 +83,15 @@ const CARDS: LinkCard[] = [
     href: TRACKING_SHEET_URL,
     chip: 'bg-green-50',
     tag: { label: 'FETCHER B2B TRACKING', cls: 'bg-purple-100 text-brand-purple' },
+  },
+  {
+    logo: 'sheet',
+    category: 'Google Sheets',
+    title: 'Pickup Requests Sheet',
+    desc: 'Verified pickup requests from the website, pulled in every 5 minutes.',
+    href: PICKUP_SHEET_URL,
+    chip: 'bg-green-50',
+    tag: { label: 'PICKUP REQUESTS', cls: 'bg-blue-50 text-blue-700' },
   },
 ];
 
