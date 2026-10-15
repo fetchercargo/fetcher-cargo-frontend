@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
 import ShipmentLabels from '@/components/dashboard/ShipmentLabels';
+import ShipmentDocuments from '@/components/dashboard/ShipmentDocuments';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import { type CustomFieldValue, formatCustomFieldValue } from '@/lib/customFields';
 
@@ -301,6 +302,8 @@ export default function ShipmentDetailPage() {
             ))}
           </Section>
         )}
+
+        <ShipmentDocuments shipmentId={data.id} />
 
         <ShipmentLabels shipmentId={data.id} awb={data.awb} piecesOnRecord={piecesOnRecord} />
 
