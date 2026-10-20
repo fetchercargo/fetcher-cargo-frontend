@@ -7,6 +7,7 @@ import ShipmentForm, { type ShipmentFormState } from '@/components/admin/Shipmen
 import { emptyParcel } from '@/components/admin/ParcelRows';
 import TrackingEditor from '@/components/admin/TrackingEditor';
 import CustomFieldsSection from '@/components/admin/CustomFieldsSection';
+import ShipmentDocumentsSection from '@/components/admin/ShipmentDocumentsSection';
 import { type ShipmentDetail, type TrackingUpdate } from '@/lib/admin';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import BrandLoader from '@/components/BrandLoader';
@@ -127,6 +128,11 @@ export default function AdminEditShipmentPage() {
 
       <div className="mt-4">
         <CustomFieldsSection shipmentId={data.id} initial={data.customFields} />
+      </div>
+
+      <div className="mt-4">
+        {/* Keyed like the form: saving an AWB or a client can lift the upload block. */}
+        <ShipmentDocumentsSection key={`docs-${data.updatedAt}`} shipmentId={data.id} />
       </div>
 
       <div className="mt-4">

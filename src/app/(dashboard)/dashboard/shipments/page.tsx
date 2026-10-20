@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
+import HorizontalScrollArea from '@/components/admin/HorizontalScrollArea';
+import { shipmentDocUrl, type ShipmentDocKind } from '@/lib/shipmentDocuments';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import ShipmentFilters, {
   EMPTY_FILTERS,
@@ -27,6 +29,8 @@ interface ShipmentSummary {
   isDg: boolean;
   customerRef: string | null;
   createdAt: string;
+  hasPod: boolean;
+  hasLr: boolean;
 }
 
 function titleCase(s: string | null): string {
@@ -163,9 +167,10 @@ export default function MyShipmentsPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-gray-200">
+            {/* The scroll area keeps its own scroll state, so scrolling never re-renders these rows. */}
+            <HorizontalScrollArea id="client-shipments-table-scroll" label="Scroll shipment columns horizontally">
+              <table className="w-full min-w-max text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-left text-gray-500">
                     <th className="px-4 py-3 font-medium whitespace-nowrap">AWB</th>
@@ -179,6 +184,7 @@ export default function MyShipmentsPage() {
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Weight</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Created</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Label</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Documents</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -224,11 +230,39 @@ export default function MyShipmentsPage() {
                           <span className="text-gray-300" title="Label available once an AWB is assigned">—</span>
                         )}
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {(['POD', 'LR'] as ShipmentDocKind[]).map((kind) =>
+                            (kind === 'POD' ? s.hasPod : s.hasLr) ? (
+                              <a
+                                key={kind}
+                                href={shipmentDocUrl('client', s.id, kind, true)}
+                                download
+                                onClick={(e) => e.stopPropagation()}
+                                title={`Download ${kind}`}
+                                className="px-2 py-0.5 rounded border border-brand-orange text-xs font-semibold text-brand-orange hover:bg-brand-orange hover:text-white transition-colors"
+                              >
+                                {kind}
+                              </a>
+                            ) : (
+                              <span
+                                key={kind}
+                                aria-disabled="true"
+                                onClick={(e) => e.stopPropagation()}
+                                title={`${kind} not available yet`}
+                                className="px-2 py-0.5 rounded border border-gray-200 text-xs font-semibold text-gray-300 cursor-not-allowed"
+                              >
+                                {kind}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </HorizontalScrollArea>
           </div>
         )}
       </div>
