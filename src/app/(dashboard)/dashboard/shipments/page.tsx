@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BrandLoader from '@/components/BrandLoader';
 import HorizontalScrollArea from '@/components/admin/HorizontalScrollArea';
-import { shipmentDocUrl, type ShipmentDocKind } from '@/lib/shipmentDocuments';
+import ShipmentActionsMenu from '@/components/dashboard/ShipmentActionsMenu';
 import { fetchStatuses, badgeClasses, statusMap, FALLBACK_STATUSES, type StatusConfig } from '@/lib/status';
 import ShipmentFilters, {
   EMPTY_FILTERS,
@@ -183,8 +183,7 @@ export default function MyShipmentsPage() {
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Pcs</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Weight</th>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Created</th>
-                    <th className="px-4 py-3 font-medium whitespace-nowrap">Label</th>
-                    <th className="px-4 py-3 font-medium whitespace-nowrap">Documents</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -217,46 +216,8 @@ export default function MyShipmentsPage() {
                         {s.weightKg != null ? `${s.weightKg} kg` : '—'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDate(s.createdAt)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-gray-600">
-                        {(s.awb ?? '').trim() ? (
-                          <Link
-                            href={`/dashboard/shipments/${s.id}#labels`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="font-semibold text-brand-orange hover:text-brand-coral transition-colors"
-                          >
-                            Print
-                          </Link>
-                        ) : (
-                          <span className="text-gray-300" title="Label available once an AWB is assigned">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {(['POD', 'LR'] as ShipmentDocKind[]).map((kind) =>
-                            (kind === 'POD' ? s.hasPod : s.hasLr) ? (
-                              <a
-                                key={kind}
-                                href={shipmentDocUrl('client', s.id, kind, true)}
-                                download
-                                onClick={(e) => e.stopPropagation()}
-                                title={`Download ${kind}`}
-                                className="px-2 py-0.5 rounded border border-brand-orange text-xs font-semibold text-brand-orange hover:bg-brand-orange hover:text-white transition-colors"
-                              >
-                                {kind}
-                              </a>
-                            ) : (
-                              <span
-                                key={kind}
-                                aria-disabled="true"
-                                onClick={(e) => e.stopPropagation()}
-                                title={`${kind} not available yet`}
-                                className="px-2 py-0.5 rounded border border-gray-200 text-xs font-semibold text-gray-300 cursor-not-allowed"
-                              >
-                                {kind}
-                              </span>
-                            ),
-                          )}
-                        </div>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <ShipmentActionsMenu shipmentId={s.id} hasAwb={Boolean((s.awb ?? '').trim())} hasPod={s.hasPod} hasLr={s.hasLr} />
                       </td>
                     </tr>
                   ))}
