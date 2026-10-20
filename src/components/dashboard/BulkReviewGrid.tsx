@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BrandDots } from '@/components/BrandLoader';
+import HorizontalScrollArea from '@/components/admin/HorizontalScrollArea';
 import { isOda, type PincodeLookup } from '@/lib/pincode';
 import { INDIAN_STATES } from '@/lib/states';
 import {
@@ -457,18 +458,24 @@ export default function BulkReviewGrid({
 
       {banner && <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">{banner}</div>}
 
-      {/* Grid */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="text-sm border-separate border-spacing-0">
+      {/* Grid. The card must not clip: overflow-hidden would stop the scroll
+          control from sticking, and the scroll area rounds and clips the table
+          itself. `isolate` keeps the sticky columns' z-index inside the table,
+          so they pass under the sticky scroll control instead of over it. */}
+      <div className="bg-white rounded-xl border border-gray-200">
+        <HorizontalScrollArea id="bulk-review-grid-scroll" label="Scroll review grid columns horizontally">
+          <table className="isolate text-sm border-separate border-spacing-0">
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
-                <th className="sticky left-0 z-20 bg-gray-50 w-14 px-3 py-2 font-medium border-b border-gray-200">#</th>
+                {/* Each pinned column has a min width as well as a width: this table is
+                    wider than its box, so the browser would otherwise shrink it below
+                    the offset the next pinned column sticks at, leaving a gap. */}
+                <th className="sticky left-0 z-20 bg-gray-50 w-14 min-w-14 px-3 py-2 font-medium border-b border-gray-200">#</th>
                 {/* Admin mode: the optional AWB column, first — matching the admin
                     template, where AWB leads before REF. Sticky with a fixed width
                     so REF's sticky offset can key off it. */}
                 {admin && (
-                  <th className="sticky left-14 z-20 bg-gray-50 w-[130px] px-2 py-2 font-medium border-b border-r border-gray-200">AWB</th>
+                  <th className="sticky left-14 z-20 bg-gray-50 w-[130px] min-w-[130px] px-2 py-2 font-medium border-b border-r border-gray-200">AWB</th>
                 )}
                 <th className={`sticky ${admin ? 'left-[186px]' : 'left-14'} z-20 bg-gray-50 px-2 py-2 font-medium border-b border-r border-gray-200`}>REF</th>
                 {SLOTS.map((slot, i) =>
@@ -510,7 +517,7 @@ export default function BulkReviewGrid({
               )}
             </tbody>
           </table>
-        </div>
+        </HorizontalScrollArea>
       </div>
 
       {/* Pagination */}
@@ -576,9 +583,9 @@ function ReviewRow({
   return (
     <>
       <tr className={rowBg}>
-        <td className="sticky left-0 z-10 bg-white w-14 px-3 py-1.5 border-b border-gray-100 text-gray-400">{row.rowNumber}</td>
+        <td className="sticky left-0 z-10 bg-white w-14 min-w-14 px-3 py-1.5 border-b border-gray-100 text-gray-400">{row.rowNumber}</td>
         {admin && (
-          <td className="sticky left-14 z-10 bg-white w-[130px] px-2 py-1.5 border-b border-r border-gray-100">
+          <td className="sticky left-14 z-10 bg-white w-[130px] min-w-[130px] px-2 py-1.5 border-b border-r border-gray-100">
             <input
               value={row.awb}
               onChange={(e) => onAwbChange(e.target.value)}
